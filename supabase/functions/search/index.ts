@@ -18,12 +18,13 @@ const corsHeaders = {
 // Initialize the embedding model
 const embeddingModel = new Supabase.ai.Session('gte-small');
 
-async function getEmbedding(text: string): Promise<number[]> {
-  const embedding = await embeddingModel.run(text.slice(0, 4000), {
+async function getEmbedding(text: string): Promise<string> {
+  const embedding = await embeddingModel.run(text.slice(0, 2000), {
     mean_pool: true,
     normalize: true,
   });
-  return Array.from(embedding as Float32Array);
+  const arr = Array.from(embedding as Float32Array);
+  return `[${arr.join(',')}]`;
 }
 
 serve(async (req) => {
@@ -61,9 +62,9 @@ serve(async (req) => {
     // Get query embedding using Supabase AI
     const queryEmbedding = await getEmbedding(query);
 
-    // Perform vector similarity search
+    // Perform vector similarity search - pass embedding as vector string
     const { data: matches, error: matchError } = await supabase.rpc("match_chunks", {
-      query_embedding: JSON.stringify(queryEmbedding),
+      query_embedding: queryEmbedding,
       match_threshold: 0.2,
       match_count: 30,
     });
