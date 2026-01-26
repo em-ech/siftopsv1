@@ -59,15 +59,13 @@ const Index = () => {
               onFeedback={submitFeedback}
             />
 
-            {/* RAG section */}
-            {(bundle?.locked || results.length > 0) && (
-              <AskPanel
-                isLocked={bundle?.locked || false}
-                ragResponse={ragResponse}
-                isAsking={isAsking}
-                onAsk={askQuestion}
-              />
-            )}
+            {/* RAG section - always visible */}
+            <AskPanel
+              isLocked={bundle?.locked || false}
+              ragResponse={ragResponse}
+              isAsking={isAsking}
+              onAsk={askQuestion}
+            />
           </div>
 
           {/* Bundle sidebar */}
