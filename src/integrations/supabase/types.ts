@@ -14,13 +14,216 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bundle_documents: {
+        Row: {
+          bundle_id: string
+          created_at: string | null
+          document_id: string
+          id: string
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string | null
+          document_id: string
+          id?: string
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string | null
+          document_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_documents_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundles: {
+        Row: {
+          bundle_id: string
+          created_at: string | null
+          id: string
+          locked: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string | null
+          id?: string
+          locked?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string | null
+          id?: string
+          locked?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      document_chunks: {
+        Row: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+        }
+        Insert: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+        }
+        Update: {
+          chunk_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          created_at: string | null
+          doc_id: string
+          full_text: string | null
+          id: string
+          published_at: string | null
+          title: string
+          type: string
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          doc_id: string
+          full_text?: string | null
+          id?: string
+          published_at?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          doc_id?: string
+          full_text?: string | null
+          id?: string
+          published_at?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
+      feedback: {
+        Row: {
+          created_at: string | null
+          doc_id: string
+          id: string
+          query_signature: string
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          doc_id: string
+          id?: string
+          query_signature: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          doc_id?: string
+          id?: string
+          query_signature?: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      sync_status: {
+        Row: {
+          chunks_count: number | null
+          docs_count: number | null
+          error: string | null
+          id: string
+          status: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          chunks_count?: number | null
+          docs_count?: number | null
+          error?: string | null
+          id?: string
+          status?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          chunks_count?: number | null
+          docs_count?: number | null
+          error?: string | null
+          id?: string
+          status?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          doc_id: string
+          document_id: string
+          similarity: number
+          title: string
+          type: string
+          url: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
