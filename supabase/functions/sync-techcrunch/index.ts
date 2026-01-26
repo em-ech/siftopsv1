@@ -49,12 +49,14 @@ function chunkText(text: string, maxChars = 800): string[] {
   return chunks.slice(0, 2);
 }
 
-async function getEmbedding(text: string): Promise<number[]> {
+async function getEmbedding(text: string): Promise<string> {
   const embedding = await embeddingModel.run(text.slice(0, 2000), {
     mean_pool: true,
     normalize: true,
   });
-  return Array.from(embedding as Float32Array);
+  // Format as PostgreSQL vector string: [0.1, 0.2, ...]
+  const arr = Array.from(embedding as Float32Array);
+  return `[${arr.join(',')}]`;
 }
 
 serve(async (req) => {
@@ -133,7 +135,7 @@ serve(async (req) => {
               document_id: doc.id,
               chunk_index: i,
               content: chunkContent,
-              embedding: JSON.stringify(embedding),
+              embedding: embedding,
             });
 
           if (chunkError) {
