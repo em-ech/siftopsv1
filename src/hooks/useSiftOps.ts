@@ -70,10 +70,10 @@ export function useSiftOps() {
       const data = await apiPost('sync-techcrunch');
       if (data.ok) {
         setStatus({
-          docs: data.docs || 0,
-          chunks: data.chunks || 0,
-          syncedAt: data.syncedAt || new Date().toISOString(),
-          status: 'complete',
+          docs: data.totalDocs || data.docs || 0,
+          chunks: data.totalChunks || data.chunks || 0,
+          syncedAt: new Date().toISOString(),
+          status: data.hasMore ? 'partial' : 'complete',
         });
       } else {
         setStatus(prev => ({ ...prev, status: 'error' }));
@@ -83,8 +83,10 @@ export function useSiftOps() {
       setStatus(prev => ({ ...prev, status: 'error' }));
     } finally {
       setIsSyncing(false);
+      // Refresh status to get accurate counts
+      await refreshStatus();
     }
-  }, []);
+  }, [refreshStatus]);
 
   const search = useCallback(async (query: string) => {
     if (!query.trim()) {
