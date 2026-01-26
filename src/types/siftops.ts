@@ -17,7 +17,7 @@ export interface SyncStatus {
   docs: number;
   chunks: number;
   syncedAt: string | null;
-  status: 'idle' | 'syncing' | 'complete' | 'error';
+  status: 'idle' | 'syncing' | 'complete' | 'partial' | 'error';
 }
 
 export interface RAGResponse {
