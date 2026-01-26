@@ -35,26 +35,11 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-function chunkText(text: string, maxChars = 800): string[] {
-  const t = String(text || "").replace(/\s+/g, " ").trim();
-  if (!t) return [];
-  
-  // Simple chunking without overlap for speed
-  const chunks: string[] = [];
-  for (let i = 0; i < t.length; i += maxChars) {
-    chunks.push(t.slice(i, i + maxChars));
-  }
-  
-  // Limit to first 2 chunks per document for speed
-  return chunks.slice(0, 2);
-}
-
 async function getEmbedding(text: string): Promise<string> {
-  const embedding = await embeddingModel.run(text.slice(0, 2000), {
+  const embedding = await embeddingModel.run(text.slice(0, 1500), {
     mean_pool: true,
     normalize: true,
   });
-  // Format as PostgreSQL vector string: [0.1, 0.2, ...]
   const arr = Array.from(embedding as Float32Array);
   return `[${arr.join(',')}]`;
 }
@@ -69,32 +54,74 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Update sync status
-    await supabase.from("sync_status").update({ status: "syncing" }).neq("id", "00000000-0000-0000-0000-000000000000");
+    // Get current sync progress
+    const { data: statusData } = await supabase
+      .from("sync_status")
+      .select("*")
+      .limit(1)
+      .single();
 
-    console.log("Starting TechCrunch sync (limited)...");
+    const currentPage = statusData?.docs_count ? Math.floor(statusData.docs_count / 5) + 1 : 1;
+    const offset = statusData?.docs_count || 0;
+
+    // Update sync status to syncing
+    await supabase.from("sync_status").update({ 
+      status: "syncing",
+      error: null 
+    }).neq("id", "00000000-0000-0000-0000-000000000000");
+
+    console.log(`Starting incremental sync, offset: ${offset}`);
     
-    // Fetch just 10 posts for a quick demo
-    const url = `${TECHCRUNCH_API}/posts?per_page=10&page=1`;
+    // Fetch only 5 posts at a time to stay under CPU limits
+    const url = `${TECHCRUNCH_API}/posts?per_page=5&page=${currentPage}`;
     console.log(`Fetching ${url}`);
     
     const response = await fetch(url);
     if (!response.ok) {
+      if (response.status === 400) {
+        // No more pages
+        await supabase.from("sync_status").update({
+          status: "complete",
+          error: null,
+        }).neq("id", "00000000-0000-0000-0000-000000000000");
+        
+        return new Response(
+          JSON.stringify({ ok: true, message: "Sync complete - no more posts" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       throw new Error(`Failed to fetch posts: ${response.status}`);
     }
 
     const posts = await response.json();
     console.log(`Fetched ${posts.length} posts`);
 
+    if (posts.length === 0) {
+      await supabase.from("sync_status").update({
+        status: "complete",
+        error: null,
+      }).neq("id", "00000000-0000-0000-0000-000000000000");
+      
+      return new Response(
+        JSON.stringify({ ok: true, message: "Sync complete" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let docsProcessed = 0;
     let chunksProcessed = 0;
 
-    for (const item of posts) {
+    // Process only first 2 posts per invocation to stay under CPU limit
+    const postsToProcess = posts.slice(0, 2);
+
+    for (const item of postsToProcess) {
       const docId = `tc_post_${item.id}`;
       const title = htmlToText(item.title?.rendered || "");
       const body = htmlToText(item.content?.rendered || "");
       const excerpt = htmlToText(item.excerpt?.rendered || "");
-      const fullText = [title, excerpt, body].filter(Boolean).join(" ");
+      
+      // Keep text shorter to reduce embedding time
+      const fullText = [title, excerpt, body.slice(0, 1000)].filter(Boolean).join(" ");
 
       // Upsert document
       const { data: doc, error: docError } = await supabase
@@ -115,58 +142,76 @@ serve(async (req) => {
         continue;
       }
 
-      // Delete old chunks
-      await supabase.from("document_chunks").delete().eq("document_id", doc.id);
+      // Check if chunks already exist for this document
+      const { count: existingChunks } = await supabase
+        .from("document_chunks")
+        .select("*", { count: "exact", head: true })
+        .eq("document_id", doc.id);
 
-      // Create chunks with embeddings (limited)
-      const textChunks = chunkText(fullText, 800);
+      if (existingChunks && existingChunks > 0) {
+        console.log(`Skipping ${docId} - already has chunks`);
+        docsProcessed++;
+        continue;
+      }
+
+      // Create just 1 chunk per document to minimize CPU usage
+      const chunkId = `${docId}::c1`;
+      const chunkContent = fullText.slice(0, 800);
       
-      for (let i = 0; i < textChunks.length; i++) {
-        const chunkId = `${docId}::c${i + 1}`;
-        const chunkContent = textChunks[i];
+      try {
+        const embedding = await getEmbedding(`${title} ${chunkContent}`);
         
-        try {
-          const embedding = await getEmbedding(`${title} ${chunkContent}`);
-          
-          const { error: chunkError } = await supabase
-            .from("document_chunks")
-            .insert({
-              chunk_id: chunkId,
-              document_id: doc.id,
-              chunk_index: i,
-              content: chunkContent,
-              embedding: embedding,
-            });
+        const { error: chunkError } = await supabase
+          .from("document_chunks")
+          .insert({
+            chunk_id: chunkId,
+            document_id: doc.id,
+            chunk_index: 0,
+            content: chunkContent,
+            embedding: embedding,
+          });
 
-          if (chunkError) {
-            console.error(`Error inserting chunk ${chunkId}:`, chunkError);
-          } else {
-            chunksProcessed++;
-          }
-        } catch (embError) {
-          console.error(`Error getting embedding for chunk ${chunkId}:`, embError);
+        if (chunkError) {
+          console.error(`Error inserting chunk ${chunkId}:`, chunkError);
+        } else {
+          chunksProcessed++;
         }
+      } catch (embError) {
+        console.error(`Error getting embedding for chunk ${chunkId}:`, embError);
       }
 
       docsProcessed++;
-      console.log(`Processed ${docsProcessed}/${posts.length} documents, ${chunksProcessed} chunks`);
+      console.log(`Processed doc ${docsProcessed}/${postsToProcess.length}`);
     }
 
-    // Update sync status
+    // Get total counts
+    const { count: totalDocs } = await supabase
+      .from("documents")
+      .select("*", { count: "exact", head: true });
+    
+    const { count: totalChunks } = await supabase
+      .from("document_chunks")
+      .select("*", { count: "exact", head: true });
+
+    // Update sync status - keep as syncing if more posts available
+    const hasMore = posts.length === 5;
     await supabase.from("sync_status").update({
       synced_at: new Date().toISOString(),
-      docs_count: docsProcessed,
-      chunks_count: chunksProcessed,
-      status: "complete",
+      docs_count: totalDocs || 0,
+      chunks_count: totalChunks || 0,
+      status: hasMore ? "partial" : "complete",
       error: null,
     }).neq("id", "00000000-0000-0000-0000-000000000000");
 
     return new Response(
       JSON.stringify({
         ok: true,
-        docs: docsProcessed,
+        processed: docsProcessed,
         chunks: chunksProcessed,
-        syncedAt: new Date().toISOString(),
+        totalDocs: totalDocs || 0,
+        totalChunks: totalChunks || 0,
+        hasMore,
+        message: hasMore ? "Click Sync again to continue" : "Sync complete",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
