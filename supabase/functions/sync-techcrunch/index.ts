@@ -20,10 +20,6 @@ const TECHCRUNCH_API = "https://techcrunch.com/wp-json/wp/v2";
 // Initialize the embedding model
 const embeddingModel = new Supabase.ai.Session('gte-small');
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
-}
-
 function htmlToText(html: string): string {
   return String(html || "")
     .replace(/<br\s*\/?>/gi, " ")
@@ -39,53 +35,26 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-function chunkText(text: string, maxChars = 1200, overlap = 200): string[] {
+function chunkText(text: string, maxChars = 800): string[] {
   const t = String(text || "").replace(/\s+/g, " ").trim();
   if (!t) return [];
   
+  // Simple chunking without overlap for speed
   const chunks: string[] = [];
-  let start = 0;
-  
-  while (start < t.length) {
-    const end = Math.min(start + maxChars, t.length);
-    chunks.push(t.slice(start, end));
-    start = end - overlap;
-    if (start >= t.length - overlap) break;
+  for (let i = 0; i < t.length; i += maxChars) {
+    chunks.push(t.slice(i, i + maxChars));
   }
   
-  return chunks;
+  // Limit to first 2 chunks per document for speed
+  return chunks.slice(0, 2);
 }
 
 async function getEmbedding(text: string): Promise<number[]> {
-  const embedding = await embeddingModel.run(text.slice(0, 4000), {
+  const embedding = await embeddingModel.run(text.slice(0, 2000), {
     mean_pool: true,
     normalize: true,
   });
   return Array.from(embedding as Float32Array);
-}
-
-async function fetchAllFromEndpoint(endpoint: string): Promise<any[]> {
-  const all: any[] = [];
-  let page = 1;
-  const perPage = 20;
-  const maxPages = 3; // Limit to 60 items for faster sync
-
-  while (page <= maxPages) {
-    const url = `${TECHCRUNCH_API}/${endpoint}?per_page=${perPage}&page=${page}`;
-    console.log(`Fetching ${url}`);
-    
-    const response = await fetch(url);
-    if (!response.ok) break;
-
-    const items = await response.json();
-    if (!Array.isArray(items) || items.length === 0) break;
-
-    all.push(...items);
-    page++;
-    await sleep(150);
-  }
-
-  return all;
 }
 
 serve(async (req) => {
@@ -96,43 +65,41 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Update sync status
     await supabase.from("sync_status").update({ status: "syncing" }).neq("id", "00000000-0000-0000-0000-000000000000");
 
-    console.log("Starting TechCrunch sync...");
+    console.log("Starting TechCrunch sync (limited)...");
     
-    // Fetch posts and pages
-    const [posts, pages] = await Promise.all([
-      fetchAllFromEndpoint("posts"),
-      fetchAllFromEndpoint("pages"),
-    ]);
+    // Fetch just 10 posts for a quick demo
+    const url = `${TECHCRUNCH_API}/posts?per_page=10&page=1`;
+    console.log(`Fetching ${url}`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch posts: ${response.status}`);
+    }
 
-    console.log(`Fetched ${posts.length} posts and ${pages.length} pages`);
-
-    const allItems = [
-      ...posts.map(p => ({ ...p, itemType: "post" })),
-      ...pages.map(p => ({ ...p, itemType: "page" })),
-    ];
+    const posts = await response.json();
+    console.log(`Fetched ${posts.length} posts`);
 
     let docsProcessed = 0;
     let chunksProcessed = 0;
 
-    for (const item of allItems) {
-      const docId = `tc_${item.itemType}_${item.id}`;
+    for (const item of posts) {
+      const docId = `tc_post_${item.id}`;
       const title = htmlToText(item.title?.rendered || "");
       const body = htmlToText(item.content?.rendered || "");
       const excerpt = htmlToText(item.excerpt?.rendered || "");
-      const fullText = [title, excerpt, body].filter(Boolean).join("\n\n");
+      const fullText = [title, excerpt, body].filter(Boolean).join(" ");
 
       // Upsert document
       const { data: doc, error: docError } = await supabase
         .from("documents")
         .upsert({
           doc_id: docId,
-          type: item.itemType,
+          type: "post",
           title,
           url: item.link || "",
           published_at: item.date || null,
@@ -146,18 +113,18 @@ serve(async (req) => {
         continue;
       }
 
-      // Delete old chunks for this document
+      // Delete old chunks
       await supabase.from("document_chunks").delete().eq("document_id", doc.id);
 
-      // Create new chunks with embeddings
-      const textChunks = chunkText(fullText, 1200, 200);
+      // Create chunks with embeddings (limited)
+      const textChunks = chunkText(fullText, 800);
       
       for (let i = 0; i < textChunks.length; i++) {
         const chunkId = `${docId}::c${i + 1}`;
         const chunkContent = textChunks[i];
         
         try {
-          const embedding = await getEmbedding(`${title}\n\n${chunkContent}`);
+          const embedding = await getEmbedding(`${title} ${chunkContent}`);
           
           const { error: chunkError } = await supabase
             .from("document_chunks")
@@ -180,7 +147,7 @@ serve(async (req) => {
       }
 
       docsProcessed++;
-      console.log(`Processed ${docsProcessed}/${allItems.length} documents`);
+      console.log(`Processed ${docsProcessed}/${posts.length} documents, ${chunksProcessed} chunks`);
     }
 
     // Update sync status
@@ -204,7 +171,6 @@ serve(async (req) => {
   } catch (error) {
     console.error("Sync error:", error);
     
-    // Try to update sync status with error
     try {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
