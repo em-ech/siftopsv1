@@ -68,10 +68,10 @@ export function ResultsView({
     <div className="min-h-screen bg-background">
       <TCTopBar onGoHome={onGoHome} />
 
-      <main className="max-w-[1400px] mx-auto px-4 py-6 pb-10">
-        <div className="flex gap-8">
+      <main className="max-w-[1200px] mx-auto px-4 py-6 pb-10">
+        <div className="flex gap-10 justify-center">
           {/* Left column - Search results (narrower) */}
-          <div className="flex-1 max-w-xl">
+          <div className="w-[500px] flex-shrink-0">
             {/* Header */}
             <h1 className="text-3xl font-bold text-foreground mb-1">SiftOps</h1>
             <p className="text-sm text-muted-foreground mb-4">
@@ -131,8 +131,8 @@ export function ResultsView({
           </div>
 
           {/* Right column - Combined Evidence Bundle + Ask panel (wider, blue border) */}
-          <div className="w-[420px] flex-shrink-0 hidden lg:block pt-[120px]">
-            <div className="sticky top-24">
+          <div className="w-[480px] flex-shrink-0 hidden lg:block pt-[140px]">
+            <div className="sticky top-20">
               <CombinedBundleAskPanel
                 bundleDocIds={bundle?.docIds || []}
                 results={results}
