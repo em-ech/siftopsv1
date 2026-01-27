@@ -143,7 +143,7 @@ export function ResultsView({
 
           {/* Right column - Bundle + Ask panel */}
           <div className="w-80 flex-shrink-0 hidden lg:block">
-            <div className="sticky top-5 space-y-4">
+            <div className="sticky top-20 space-y-4">
               {/* Bundle panel - always show */}
               <BundleSidePanel
                 bundleDocIds={bundle?.docIds || []}
