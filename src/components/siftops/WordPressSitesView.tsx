@@ -113,7 +113,7 @@ export function WordPressSitesView({
                   {site.url}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center">
                 {site.indexed ? (
                   <span className="flex items-center gap-1.5 text-sm text-emerald-600">
                     <Check className="w-4 h-4" />
@@ -124,23 +124,26 @@ export function WordPressSitesView({
                     Not indexed
                   </span>
                 )}
-                <Button
-                  variant={site.indexed ? "outline" : "default"}
-                  size="sm"
-                  onClick={onSync}
-                  disabled={isSyncing}
-                  className="gap-2"
-                >
-                  {isSyncing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  {isSyncing ? 'Syncing...' : site.indexed ? 'Re-sync' : 'Sync'}
-                </Button>
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Sync button at bottom */}
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={onSync}
+            disabled={isSyncing}
+            size="lg"
+            className="gap-2 px-8"
+          >
+            {isSyncing ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-5 h-5" />
+            )}
+            {isSyncing ? 'Syncing...' : indexed > 0 ? 'Sync All Sources' : 'Start Indexing'}
+          </Button>
         </div>
 
         {/* Status footer */}
