@@ -1,1 +1,37 @@
 project_id = "dlaqtotwoznsvxpamkfa"
+
+[functions.ask]
+verify_jwt = false
+
+[functions.bundle]
+verify_jwt = false
+
+[functions.feedback]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
+
+[functions.status]
+verify_jwt = false
+
+[functions.sync-techcrunch]
+verify_jwt = false
+
+[functions.gdrive-status]
+verify_jwt = false
+
+[functions.gdrive-connect]
+verify_jwt = false
+
+[functions.gdrive-disconnect]
+verify_jwt = false
+
+[functions.gdrive-sync]
+verify_jwt = false
+
+[functions.gdrive-search]
+verify_jwt = false
+
+[functions.gdrive-ask]
+verify_jwt = false

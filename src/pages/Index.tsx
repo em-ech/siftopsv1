@@ -2,14 +2,18 @@ import { useEffect, useState } from 'react';
 import { LandingView } from '@/components/siftops/LandingView';
 import { WordPressSitesView } from '@/components/siftops/WordPressSitesView';
 import { ResultsView } from '@/components/siftops/ResultsView';
+import { GoogleDriveView } from '@/components/siftops/GoogleDriveView';
+import { GDriveResultsView } from '@/components/siftops/GDriveResultsView';
 import { useSiftOps } from '@/hooks/useSiftOps';
+import { useGoogleDrive } from '@/hooks/useGoogleDrive';
 
-type ViewMode = 'landing' | 'wordpress' | 'results';
+type ViewMode = 'landing' | 'wordpress' | 'results' | 'gdrive' | 'gdrive-results';
 
 const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [currentQuery, setCurrentQuery] = useState('');
 
+  // WordPress / existing SiftOps hook
   const {
     status,
     isSyncing,
@@ -30,6 +34,9 @@ const Index = () => {
     askQuestion,
   } = useSiftOps();
 
+  // Google Drive hook
+  const gdrive = useGoogleDrive();
+
   useEffect(() => {
     refreshStatus();
   }, [refreshStatus]);
@@ -37,6 +44,8 @@ const Index = () => {
   const handleSelectSourceType = (type: 'wordpress' | 'local' | 'onedrive' | 'gdrive') => {
     if (type === 'wordpress') {
       setViewMode('wordpress');
+    } else if (type === 'gdrive') {
+      setViewMode('gdrive');
     }
     // Other source types coming soon
   };
@@ -45,6 +54,12 @@ const Index = () => {
     setCurrentQuery(query);
     setViewMode('results');
     await search(query);
+  };
+
+  const handleGDriveSearch = async (query: string) => {
+    setCurrentQuery(query);
+    setViewMode('gdrive-results');
+    await gdrive.search(query);
   };
 
   const handleSync = async () => {
@@ -67,6 +82,37 @@ const Index = () => {
         onBack={() => setViewMode('landing')}
         onSearch={handleSearch}
         onSync={handleSync}
+      />
+    );
+  }
+
+  if (viewMode === 'gdrive') {
+    return (
+      <GoogleDriveView
+        onBack={() => setViewMode('landing')}
+        onSearch={handleGDriveSearch}
+      />
+    );
+  }
+
+  if (viewMode === 'gdrive-results') {
+    return (
+      <GDriveResultsView
+        query={currentQuery}
+        results={gdrive.results}
+        searchReason={gdrive.searchReason}
+        isSearching={gdrive.isSearching}
+        onSearch={handleGDriveSearch}
+        bundle={gdrive.bundle}
+        onCreateBundle={gdrive.createBundle}
+        onAddToBundle={gdrive.addToBundle}
+        onRemoveFromBundle={gdrive.removeFromBundle}
+        onLockBundle={gdrive.lockBundle}
+        onClearBundle={gdrive.clearBundle}
+        ragResponse={gdrive.ragResponse}
+        isAsking={gdrive.isAsking}
+        onAsk={gdrive.askQuestion}
+        onGoHome={() => setViewMode('landing')}
       />
     );
   }

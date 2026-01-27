@@ -34,6 +34,13 @@ export function LandingView({ onSelectSourceType }: LandingViewProps) {
             onClick={() => onSelectSourceType('wordpress')}
           />
           <SourceTypeCard
+            icon={Cloud}
+            title="Google Drive"
+            description="Connect and search your Google Drive files"
+            enabled={true}
+            onClick={() => onSelectSourceType('gdrive')}
+          />
+          <SourceTypeCard
             icon={HardDrive}
             title="Local Harddrive"
             description="Index and search local files"
@@ -44,13 +51,6 @@ export function LandingView({ onSelectSourceType }: LandingViewProps) {
             icon={Cloud}
             title="OneDrive"
             description="Connect your Microsoft OneDrive"
-            enabled={false}
-            onClick={() => {}}
-          />
-          <SourceTypeCard
-            icon={Cloud}
-            title="Google Drive"
-            description="Connect your Google Drive"
             enabled={false}
             onClick={() => {}}
           />
