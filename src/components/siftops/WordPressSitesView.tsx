@@ -12,10 +12,6 @@ interface WordPressSite {
 
 const DEFAULT_SITES: WordPressSite[] = [
   { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com', indexed: false, docsCount: 0 },
-  { id: 'mozilla', name: 'Mozilla Blog', url: 'https://blog.mozilla.org', indexed: false, docsCount: 0 },
-  { id: 'wpnews', name: 'WordPress.org News', url: 'https://wordpress.org/news', indexed: false, docsCount: 0 },
-  { id: 'smashing', name: 'Smashing Magazine', url: 'https://www.smashingmagazine.com', indexed: false, docsCount: 0 },
-  { id: 'nasa', name: 'NASA Blogs', url: 'https://blogs.nasa.gov', indexed: false, docsCount: 0 },
 ];
 
 interface WordPressSitesViewProps {
