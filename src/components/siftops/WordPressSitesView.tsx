@@ -120,16 +120,6 @@ export function WordPressSitesView({
                     Not indexed
                   </span>
                 )}
-                <button
-                  onClick={onSync}
-                  disabled={isSyncing}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <RefreshCw
-                    className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`}
-                  />
-                  {site.indexed ? 'Re-sync' : 'Sync'}
-                </button>
               </div>
             </div>
           ))}
