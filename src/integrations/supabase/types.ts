@@ -175,6 +175,168 @@ export type Database = {
         }
         Relationships: []
       }
+      gdrive_chunks: {
+        Row: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          file_id: string | null
+          id: string
+        }
+        Insert: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          file_id?: string | null
+          id?: string
+        }
+        Update: {
+          chunk_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          file_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_chunks_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "gdrive_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          email: string
+          id: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gdrive_files: {
+        Row: {
+          connection_id: string | null
+          created_at: string
+          file_id: string
+          folder_path: string | null
+          full_text: string | null
+          id: string
+          indexed_at: string | null
+          mime_type: string | null
+          modified_time: string | null
+          name: string
+          updated_at: string
+          web_view_link: string | null
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string
+          file_id: string
+          folder_path?: string | null
+          full_text?: string | null
+          id?: string
+          indexed_at?: string | null
+          mime_type?: string | null
+          modified_time?: string | null
+          name: string
+          updated_at?: string
+          web_view_link?: string | null
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string
+          file_id?: string
+          folder_path?: string | null
+          full_text?: string | null
+          id?: string
+          indexed_at?: string | null
+          mime_type?: string | null
+          modified_time?: string | null
+          name?: string
+          updated_at?: string
+          web_view_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_files_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "gdrive_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_sync_status: {
+        Row: {
+          chunks_count: number | null
+          connection_id: string | null
+          created_at: string
+          error: string | null
+          files_count: number | null
+          id: string
+          status: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          chunks_count?: number | null
+          connection_id?: string | null
+          created_at?: string
+          error?: string | null
+          files_count?: number | null
+          id?: string
+          status?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          chunks_count?: number | null
+          connection_id?: string | null
+          created_at?: string
+          error?: string | null
+          files_count?: number | null
+          id?: string
+          status?: string | null
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_sync_status_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: true
+            referencedRelation: "gdrive_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_status: {
         Row: {
           chunks_count: number | null
@@ -222,6 +384,23 @@ export type Database = {
           title: string
           type: string
           url: string
+        }[]
+      }
+      match_gdrive_chunks: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          file_id: string
+          file_name: string
+          folder_path: string
+          mime_type: string
+          similarity: number
+          web_view_link: string
         }[]
       }
     }
