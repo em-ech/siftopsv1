@@ -71,7 +71,7 @@ export function ResultsView({
       <main className="max-w-[1200px] mx-auto px-4 py-6 pb-10">
         <div className="flex gap-10 justify-center">
           {/* Left column - Search results (narrower) */}
-          <div className="w-[600px] flex-shrink-0">
+          <div className="w-[700px] flex-shrink-0">
 
             {/* Search row */}
             <form onSubmit={handleSearch} className="flex gap-2 items-center mb-2">
