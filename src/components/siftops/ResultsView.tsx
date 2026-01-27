@@ -144,26 +144,18 @@ export function ResultsView({
           {/* Right column - Bundle + Ask panel */}
           <div className="w-80 flex-shrink-0 hidden lg:block">
             <div className="sticky top-5 space-y-4">
-              {/* Bundle panel */}
-              {bundle && bundle.docIds.length > 0 ? (
-                <BundleSidePanel
-                  bundleDocIds={bundle.docIds}
-                  results={results}
-                  locked={bundle.locked}
-                  onRemove={onRemoveFromBundle}
-                  onClear={onClearBundle}
-                  onLock={onLockBundle}
-                />
-              ) : (
-                <div className="border border-dashed border-border rounded-lg p-4 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Add sources to build an evidence bundle
-                  </p>
-                </div>
-              )}
+              {/* Bundle panel - always show */}
+              <BundleSidePanel
+                bundleDocIds={bundle?.docIds || []}
+                results={results}
+                locked={bundle?.locked || false}
+                onRemove={onRemoveFromBundle}
+                onClear={onClearBundle}
+                onLock={onLockBundle}
+              />
 
-              {/* Ask panel - only when bundle exists */}
-              {bundle && bundle.docIds.length > 0 && (
+              {/* Ask panel - only when bundle is locked */}
+              {bundle && bundle.locked && (
                 <AskPanel
                   isLocked={bundle.locked}
                   ragResponse={ragResponse}
@@ -255,17 +247,23 @@ function BundleSidePanel({
         </button>
       </div>
 
-      {/* Source list - simple text rows */}
-      <div className="flex flex-col gap-2 max-h-48 overflow-auto">
-        {bundleItems.map(({ docId, title }) => (
-          <div
-            key={docId}
-            className="text-sm text-foreground py-2 px-3 bg-muted/50 rounded-lg truncate"
-          >
-            {title}
-          </div>
-        ))}
-      </div>
+      {/* Source list */}
+      {bundleItems.length > 0 ? (
+        <div className="flex flex-col gap-2 max-h-48 overflow-auto">
+          {bundleItems.map(({ docId, title }) => (
+            <div
+              key={docId}
+              className="text-sm text-foreground py-2 px-3 bg-muted/50 rounded-lg truncate"
+            >
+              {title}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-2">
+          Add sources from search results
+        </p>
+      )}
     </div>
   );
 }
