@@ -59,24 +59,34 @@ export function useSiftOps() {
     setIsSyncing(true);
     setStatus(prev => ({ ...prev, status: 'syncing' }));
     
+    // Sync all WordPress sources sequentially
+    const sourceIds = ['techcrunch', 'mozilla', 'wpnews', 'smashing', 'nasa'];
+    
     try {
-      const data = await apiPost('sync-techcrunch');
-      if (data.ok) {
-        setStatus({
-          docs: data.totalDocs || data.docs || 0,
-          chunks: data.totalChunks || data.chunks || 0,
-          syncedAt: new Date().toISOString(),
-          status: data.hasMore ? 'partial' : 'complete',
-        });
-      } else {
-        setStatus(prev => ({ ...prev, status: 'error' }));
+      for (const sourceId of sourceIds) {
+        console.log(`Syncing ${sourceId}...`);
+        try {
+          const data = await apiPost('sync-wordpress', { sourceId });
+          if (data.ok) {
+            console.log(`${sourceId}: ${data.docsInserted} docs, ${data.chunksCreated} chunks`);
+            setStatus({
+              docs: data.totalDocs || 0,
+              chunks: data.totalChunks || 0,
+              syncedAt: new Date().toISOString(),
+              status: 'syncing',
+            });
+          }
+        } catch (sourceError) {
+          console.error(`Error syncing ${sourceId}:`, sourceError);
+        }
       }
+      
+      setStatus(prev => ({ ...prev, status: 'complete' }));
     } catch (error) {
       console.error('Sync error:', error);
       setStatus(prev => ({ ...prev, status: 'error' }));
     } finally {
       setIsSyncing(false);
-      // Refresh status to get accurate counts
       await refreshStatus();
     }
   }, [refreshStatus]);
