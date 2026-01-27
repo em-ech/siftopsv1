@@ -14,18 +14,10 @@ export function TCResultCard({
   bundleLocked,
   onAddToBundle,
 }: TCResultCardProps) {
-  // Format meta line (placeholder for author/date)
-  const meta = result.type === 'post' ? 'TechCrunch Staff' : 'Page';
-
   return (
     <div className="border-t border-border pt-3.5 animate-slide-up">
-      {/* Category tag */}
-      <span className="inline-block px-2.5 py-1 bg-secondary border border-border rounded-full text-xs uppercase tracking-wider text-foreground">
-        {result.type}
-      </span>
-
       {/* Title */}
-      <h3 className="mt-2 text-xl font-extrabold leading-tight">
+      <h3 className="text-lg font-bold leading-tight">
         <a
           href={result.url}
           target="_blank"
@@ -36,9 +28,12 @@ export function TCResultCard({
         </a>
       </h3>
 
-      {/* Meta line */}
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        {meta}
+      {/* Meta line - author + type tag */}
+      <p className="mt-1.5 text-sm text-muted-foreground flex items-center gap-2">
+        <span>TechCrunch Staff</span>
+        <span className="inline-block px-2 py-0.5 bg-secondary border border-border rounded-full text-xs uppercase tracking-wider text-foreground">
+          {result.type}
+        </span>
       </p>
 
       {/* URL */}
