@@ -72,11 +72,6 @@ export function ResultsView({
         <div className="flex gap-10 justify-center">
           {/* Left column - Search results (narrower) */}
           <div className="w-[500px] flex-shrink-0">
-            {/* Header */}
-            <h1 className="text-3xl font-bold text-foreground mb-1">SiftOps</h1>
-            <p className="text-sm text-muted-foreground mb-4">
-              Semantic search with evidence-based RAG
-            </p>
 
             {/* Search row */}
             <form onSubmit={handleSearch} className="flex gap-2 items-center mb-2">

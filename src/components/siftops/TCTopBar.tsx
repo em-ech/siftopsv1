@@ -7,7 +7,7 @@ interface TCTopBarProps {
 export function TCTopBar({ onGoHome }: TCTopBarProps) {
   return (
     <header className="bg-background border-b border-border">
-      <div className="max-w-[1280px] mx-auto px-4 py-3 flex items-center">
+      <div className="max-w-[1280px] mx-auto px-4 py-3 flex items-center gap-3">
         {/* Brand - clickable to go home */}
         <button
           onClick={onGoHome}
@@ -16,6 +16,9 @@ export function TCTopBar({ onGoHome }: TCTopBarProps) {
           <Home className="w-5 h-5 text-primary" />
           SiftOps
         </button>
+        <span className="text-sm text-muted-foreground">
+          Semantic search with evidence-based RAG
+        </span>
       </div>
     </header>
   );
