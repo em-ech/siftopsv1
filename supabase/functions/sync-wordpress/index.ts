@@ -15,13 +15,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Source configuration with limits - keep small to avoid CPU timeout
+// Source configuration - TechCrunch only
 const SOURCES: Record<string, { name: string; baseUrl: string; posts: number; pages: number }> = {
-  techcrunch: { name: "TechCrunch", baseUrl: "https://techcrunch.com", posts: 5, pages: 0 },
-  mozilla: { name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org", posts: 5, pages: 0 },
-  wpnews: { name: "WordPress.org News", baseUrl: "https://wordpress.org/news", posts: 5, pages: 0 },
-  smashing: { name: "Smashing Magazine", baseUrl: "https://www.smashingmagazine.com", posts: 5, pages: 0 },
-  nasa: { name: "NASA Blogs", baseUrl: "https://blogs.nasa.gov", posts: 5, pages: 0 },
+  techcrunch: { name: "TechCrunch", baseUrl: "https://techcrunch.com", posts: 10, pages: 0 },
 };
 
 // Initialize the embedding model
