@@ -16,6 +16,7 @@ export function useGoogleDrive() {
   // Connection state
   const [connection, setConnection] = useState<GDriveConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [justConnected, setJustConnected] = useState(false);
 
   // Sync state
   const [syncStatus, setSyncStatus] = useState<GDriveSyncStatus>({
@@ -53,6 +54,7 @@ export function useGoogleDrive() {
           email: data.email,
           connected: true,
         });
+        setJustConnected(true);
         
         // Clear the URL params
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -344,6 +346,7 @@ export function useGoogleDrive() {
     // Connection
     connection,
     isConnecting,
+    justConnected,
     checkConnection,
     connect,
     disconnect,

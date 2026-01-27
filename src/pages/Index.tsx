@@ -41,11 +41,29 @@ const Index = () => {
     refreshStatus();
   }, [refreshStatus]);
 
-  const handleSelectSourceType = (type: 'wordpress' | 'local' | 'onedrive' | 'gdrive') => {
+  // Handle OAuth callback - when returning from Google OAuth, automatically go to gdrive view
+  useEffect(() => {
+    if (gdrive.justConnected && viewMode === 'landing') {
+      // User just completed OAuth, go directly to Drive view
+      setViewMode('gdrive');
+    }
+  }, [gdrive.justConnected, viewMode]);
+
+  const handleSelectSourceType = async (type: 'wordpress' | 'local' | 'onedrive' | 'gdrive') => {
     if (type === 'wordpress') {
       setViewMode('wordpress');
     } else if (type === 'gdrive') {
-      setViewMode('gdrive');
+      // Check if already connected
+      await gdrive.checkConnection();
+      if (gdrive.connection) {
+        // Already connected, go to Drive view
+        setViewMode('gdrive');
+      } else {
+        // Not connected - trigger OAuth immediately
+        await gdrive.connect();
+        // The OAuth redirect will happen, user will return to the app
+        // The OAuth callback handling in useGoogleDrive will set the connection
+      }
     }
     // Other source types coming soon
   };
