@@ -20,6 +20,8 @@ const embeddingModel = new Supabase.ai.Session('gte-small');
 
 function htmlToText(html: string): string {
   return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<\/p>/gi, " ")
     .replace(/<[^>]+>/g, " ")
@@ -52,67 +54,118 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Update sync status to syncing
-    await supabase.from("sync_status").update({ 
+    console.log("Starting TechCrunch sync...");
+    
+    // Update sync status
+    await supabase.from("sync_status").upsert({ 
+      id: '00000000-0000-0000-0000-000000000001',
       status: "syncing",
       error: null 
-    }).neq("id", "00000000-0000-0000-0000-000000000000");
-
-    console.log("Starting embedding generation for existing documents...");
+    });
     
-    // Find documents that don't have any chunks yet
-    const { data: docsWithoutChunks, error: queryError } = await supabase
-      .from("documents")
-      .select(`
-        id,
-        doc_id,
-        title,
-        full_text,
-        document_chunks(id)
-      `)
-      .limit(3);
-
-    if (queryError) {
-      throw new Error(`Query error: ${queryError.message}`);
+    // Fetch just 10 posts per invocation to stay within limits
+    const url = 'https://techcrunch.com/wp-json/wp/v2/posts?per_page=10&page=1';
+    console.log(`Fetching: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`WordPress API returned ${response.status}`);
     }
-
-    // Filter to only docs without chunks
-    const docsToProcess = (docsWithoutChunks || []).filter(
-      (doc: any) => !doc.document_chunks || doc.document_chunks.length === 0
-    ).slice(0, 2); // Process max 2 per invocation
-
-    console.log(`Found ${docsToProcess.length} documents needing embeddings`);
-
-    let chunksProcessed = 0;
-
-    for (const doc of docsToProcess) {
-      const chunkId = `${doc.doc_id}::c1`;
-      const title = htmlToText(doc.title || "");
-      const fullText = htmlToText(doc.full_text || "");
+    
+    const posts = await response.json();
+    console.log(`Fetched ${posts.length} posts`);
+    
+    let docsInserted = 0;
+    let chunksCreated = 0;
+    
+    for (const post of posts) {
+      const docId = `tc_post_${post.id}`;
+      const title = htmlToText(post.title?.rendered || "Untitled");
+      const excerpt = htmlToText(post.excerpt?.rendered || "");
+      const content = htmlToText(post.content?.rendered || "");
+      const fullText = [title, excerpt, content].filter(Boolean).join("\n\n").slice(0, 3000);
+      const postUrl = post.link || "";
+      
+      if (!postUrl || !fullText) continue;
+      
+      // Check if document already exists
+      const { data: existing } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("doc_id", docId)
+        .single();
+      
+      let documentId: string;
+      
+      if (existing) {
+        documentId = existing.id;
+        console.log(`Doc ${docId} exists, checking chunks...`);
+      } else {
+        // Insert document
+        const { data: newDoc, error: docError } = await supabase
+          .from("documents")
+          .insert({
+            doc_id: docId,
+            type: "post",
+            title: title.slice(0, 500),
+            url: postUrl,
+            full_text: fullText,
+            published_at: post.date || null,
+          })
+          .select("id")
+          .single();
+        
+        if (docError) {
+          console.error(`Error inserting doc ${docId}:`, docError.message);
+          continue;
+        }
+        
+        documentId = newDoc.id;
+        docsInserted++;
+        console.log(`Inserted doc: ${docId}`);
+      }
+      
+      // Check if chunks already exist
+      const { data: existingChunks } = await supabase
+        .from("document_chunks")
+        .select("id")
+        .eq("document_id", documentId)
+        .limit(1);
+      
+      if (existingChunks && existingChunks.length > 0) {
+        console.log(`Chunks exist for ${docId}, skipping`);
+        continue;
+      }
+      
+      // Create single chunk with embedding
+      const chunkId = `${docId}::c1`;
       const chunkContent = fullText.slice(0, 800);
       
       try {
-        console.log(`Generating embedding for ${doc.doc_id}`);
+        console.log(`Generating embedding for ${docId}...`);
         const embedding = await getEmbedding(`${title} ${chunkContent}`);
         
         const { error: chunkError } = await supabase
           .from("document_chunks")
           .insert({
             chunk_id: chunkId,
-            document_id: doc.id,
+            document_id: documentId,
             chunk_index: 0,
             content: chunkContent,
             embedding: embedding,
           });
-
+        
         if (chunkError) {
-          console.error(`Error inserting chunk ${chunkId}:`, chunkError);
+          console.error(`Error inserting chunk:`, chunkError.message);
         } else {
-          chunksProcessed++;
-          console.log(`Created chunk for ${doc.doc_id}`);
+          chunksCreated++;
+          console.log(`Created chunk for ${docId}`);
         }
       } catch (embError) {
-        console.error(`Error getting embedding for ${doc.doc_id}:`, embError);
+        console.error(`Embedding error:`, embError);
       }
     }
 
@@ -125,31 +178,26 @@ serve(async (req) => {
       .from("document_chunks")
       .select("*", { count: "exact", head: true });
 
-    // Check if there are more docs without chunks
-    const { count: docsWithoutChunksCount } = await supabase
-      .from("documents")
-      .select("id, document_chunks!left(id)", { count: "exact", head: true });
-
-    const hasMore = docsToProcess.length > 0;
-
     // Update sync status
-    await supabase.from("sync_status").update({
+    await supabase.from("sync_status").upsert({
+      id: '00000000-0000-0000-0000-000000000001',
       synced_at: new Date().toISOString(),
       docs_count: totalDocs || 0,
       chunks_count: totalChunks || 0,
-      status: hasMore ? "partial" : "complete",
+      status: "complete",
       error: null,
-    }).neq("id", "00000000-0000-0000-0000-000000000000");
+    });
+
+    console.log(`Sync complete: ${docsInserted} new docs, ${chunksCreated} new chunks`);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        processed: docsToProcess.length,
-        chunks: chunksProcessed,
+        docsInserted,
+        chunksCreated,
         totalDocs: totalDocs || 0,
         totalChunks: totalChunks || 0,
-        hasMore,
-        message: hasMore ? `Added ${chunksProcessed} embeddings. Click Sync again to continue.` : "All documents have embeddings!",
+        message: `Synced ${docsInserted} new documents with ${chunksCreated} chunks`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -161,10 +209,11 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
-      await supabase.from("sync_status").update({
+      await supabase.from("sync_status").upsert({
+        id: '00000000-0000-0000-0000-000000000001',
         status: "error",
         error: String(error),
-      }).neq("id", "00000000-0000-0000-0000-000000000000");
+      });
     } catch {}
 
     return new Response(
