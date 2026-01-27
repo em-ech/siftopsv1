@@ -126,7 +126,7 @@ export function ResultsView({
           </div>
 
           {/* Right column - Combined Evidence Bundle + Ask panel (wider, blue border) */}
-          <div className="w-[480px] flex-shrink-0 hidden lg:block pt-[180px]">
+          <div className="w-[480px] flex-shrink-0 hidden lg:block">
             <div className="sticky top-20">
               <CombinedBundleAskPanel
                 bundleDocIds={bundle?.docIds || []}
