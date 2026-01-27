@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
-import { TopBar } from '@/components/siftops/TopBar';
-import { SearchSection } from '@/components/siftops/SearchSection';
-import { ResultsList } from '@/components/siftops/ResultsList';
-import { BundlePanel } from '@/components/siftops/BundlePanel';
-import { AskPanel } from '@/components/siftops/AskPanel';
+import { useEffect, useState } from 'react';
+import { LandingView } from '@/components/siftops/LandingView';
+import { ResultsView } from '@/components/siftops/ResultsView';
 import { useSiftOps } from '@/hooks/useSiftOps';
 
+type ViewMode = 'landing' | 'results';
+
 const Index = () => {
+  const [viewMode, setViewMode] = useState<ViewMode>('landing');
+  const [currentQuery, setCurrentQuery] = useState('');
+
   const {
     status,
     isSyncing,
@@ -25,63 +27,54 @@ const Index = () => {
     ragResponse,
     isAsking,
     askQuestion,
-    submitFeedback,
   } = useSiftOps();
 
   useEffect(() => {
     refreshStatus();
   }, [refreshStatus]);
 
-  return (
-    <div className="min-h-screen bg-background">
-      <TopBar
-        status={status}
+  const handleSearch = async (query: string) => {
+    setCurrentQuery(query);
+    setViewMode('results');
+    await search(query);
+  };
+
+  const handleSync = async () => {
+    await syncTechCrunch();
+    // After sync, transition to results view
+    setViewMode('results');
+  };
+
+  if (viewMode === 'landing') {
+    return (
+      <LandingView
+        indexed={status.docs}
         isSyncing={isSyncing}
-        onSync={syncTechCrunch}
+        onSearch={handleSearch}
+        onSync={handleSync}
       />
+    );
+  }
 
-      <main className="max-w-[960px] mx-auto px-4 py-6">
-        {/* Search */}
-        <div className="mb-8">
-          <SearchSection onSearch={search} isSearching={isSearching} />
-        </div>
-
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-          {/* Results column */}
-          <div className="space-y-6">
-            <ResultsList
-              results={results}
-              searchReason={searchReason}
-              bundleDocIds={bundle?.docIds || []}
-              bundleLocked={bundle?.locked || false}
-              onAddToBundle={addToBundle}
-              onFeedback={submitFeedback}
-            />
-
-            {/* RAG section - always visible */}
-            <AskPanel
-              isLocked={bundle?.locked || false}
-              ragResponse={ragResponse}
-              isAsking={isAsking}
-              onAsk={askQuestion}
-            />
-          </div>
-
-          {/* Bundle sidebar */}
-          <div className="lg:sticky lg:top-20 h-fit">
-            <BundlePanel
-              bundle={bundle}
-              results={results}
-              onCreate={createBundle}
-              onRemove={removeFromBundle}
-              onLock={lockBundle}
-              onClear={clearBundle}
-            />
-          </div>
-        </div>
-      </main>
-    </div>
+  return (
+    <ResultsView
+      query={currentQuery}
+      results={results}
+      searchReason={searchReason}
+      isSearching={isSearching}
+      onSearch={handleSearch}
+      isSyncing={isSyncing}
+      onSync={handleSync}
+      bundle={bundle}
+      onCreateBundle={createBundle}
+      onAddToBundle={addToBundle}
+      onRemoveFromBundle={removeFromBundle}
+      onLockBundle={lockBundle}
+      onClearBundle={clearBundle}
+      ragResponse={ragResponse}
+      isAsking={isAsking}
+      onAsk={askQuestion}
+    />
   );
 };
 
