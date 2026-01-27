@@ -26,11 +26,21 @@ export function LandingView({ indexed, isSyncing, onSearch, onSync }: LandingVie
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
-      <div className="w-full max-w-[720px] flex flex-col items-center gap-4">
+      <div className="w-full max-w-[720px] flex flex-col items-center gap-5">
         {/* Logo */}
-        <h1 className="text-5xl font-extrabold tracking-tight text-foreground" style={{ letterSpacing: '-0.6px' }}>
-          SiftOps
-        </h1>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <Search className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
+            SiftOps
+          </h1>
+        </div>
+
+        {/* Tagline */}
+        <p className="text-muted-foreground text-center">
+          Semantic search with evidence-based RAG
+        </p>
 
         {/* Search Input */}
         <input
@@ -38,16 +48,16 @@ export function LandingView({ indexed, isSyncing, onSearch, onSync }: LandingVie
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search TechCrunch"
-          className="w-full px-4 py-3.5 border border-border rounded-full text-base bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+          placeholder="Search sources..."
+          className="w-full px-5 py-3.5 border border-border rounded-lg text-base bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
         />
 
         {/* Actions */}
-        <div className="flex gap-2.5 flex-wrap justify-center">
+        <div className="flex gap-3 flex-wrap justify-center">
           <button
             onClick={handleSubmit}
             disabled={!query.trim()}
-            className="px-4 py-2.5 bg-foreground text-background rounded-full text-sm font-medium border border-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Search className="w-4 h-4" />
             Search
@@ -55,16 +65,16 @@ export function LandingView({ indexed, isSyncing, onSearch, onSync }: LandingVie
           <button
             onClick={onSync}
             disabled={isSyncing}
-            className="px-4 py-2.5 bg-secondary text-secondary-foreground rounded-full text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-5 py-2.5 bg-background text-foreground rounded-lg text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync TechCrunch'}
+            {isSyncing ? 'Syncing...' : 'Sync'}
           </button>
         </div>
 
         {/* Status */}
         <p className="text-xs text-muted-foreground">
-          {indexed > 0 ? `Indexed ${indexed} sources` : 'Not indexed'}
+          {indexed > 0 ? `${indexed} sources indexed` : 'No sources indexed yet'}
         </p>
       </div>
     </div>
