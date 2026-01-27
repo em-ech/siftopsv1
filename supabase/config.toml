@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.gdrive-ask]
 verify_jwt = false
+
+[functions.gdrive-auth-url]
+verify_jwt = false
+
+[functions.gdrive-callback]
+verify_jwt = false
