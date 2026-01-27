@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Globe, RefreshCw, Check, Search } from 'lucide-react';
+import { ArrowLeft, Globe, RefreshCw, Check, Search, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface WordPressSite {
   id: string;
@@ -10,7 +11,7 @@ interface WordPressSite {
 }
 
 const DEFAULT_SITES: WordPressSite[] = [
-  { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com', indexed: true, docsCount: 0 },
+  { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com', indexed: false, docsCount: 0 },
   { id: 'mozilla', name: 'Mozilla Blog', url: 'https://blog.mozilla.org', indexed: false, docsCount: 0 },
   { id: 'wpnews', name: 'WordPress.org News', url: 'https://wordpress.org/news', indexed: false, docsCount: 0 },
   { id: 'smashing', name: 'Smashing Magazine', url: 'https://www.smashingmagazine.com', indexed: false, docsCount: 0 },
@@ -48,6 +49,8 @@ export function WordPressSitesView({
     }
   };
 
+  const canSearch = indexed > 0;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -80,12 +83,13 @@ export function WordPressSitesView({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search across WordPress sources..."
-            className="flex-1 px-4 py-3 border border-border rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+            placeholder={canSearch ? "Search across WordPress sources..." : "Index a source first to enable search..."}
+            disabled={!canSearch}
+            className="flex-1 px-4 py-3 border border-border rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
-            disabled={!query.trim()}
+            disabled={!query.trim() || !canSearch}
             className="px-5 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Search className="w-4 h-4" />
@@ -120,6 +124,20 @@ export function WordPressSitesView({
                     Not indexed
                   </span>
                 )}
+                <Button
+                  variant={site.indexed ? "outline" : "default"}
+                  size="sm"
+                  onClick={onSync}
+                  disabled={isSyncing}
+                  className="gap-2"
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  {isSyncing ? 'Syncing...' : site.indexed ? 'Re-sync' : 'Sync'}
+                </Button>
               </div>
             </div>
           ))}
