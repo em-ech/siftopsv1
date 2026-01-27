@@ -37,8 +37,8 @@ export function LandingView({ onSelectSourceType }: LandingViewProps) {
             icon={Cloud}
             title="Google Drive"
             description="Connect and search your Google Drive files"
-            enabled={true}
-            onClick={() => onSelectSourceType('gdrive')}
+            enabled={false}
+            onClick={() => {}}
           />
           <SourceTypeCard
             icon={HardDrive}
