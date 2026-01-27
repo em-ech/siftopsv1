@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GDriveConnection, GDriveSyncStatus, GDriveSearchResult } from '@/types/gdrive';
 import { Bundle, RAGResponse } from '@/types/siftops';
 
@@ -42,6 +42,45 @@ export function useGoogleDrive() {
   const [ragResponse, setRagResponse] = useState<RAGResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
+  // Check for OAuth callback on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (code && state) {
+      // Handle OAuth callback
+      handleOAuthCallback(code);
+    }
+  }, []);
+
+  const handleOAuthCallback = async (code: string) => {
+    setIsConnecting(true);
+    try {
+      // Get the redirect URI (current page without query params)
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      
+      const data = await apiPost('gdrive-callback', { code, redirectUri });
+      
+      if (data.ok) {
+        setConnection({
+          id: data.connectionId,
+          email: data.email,
+          connected: true,
+        });
+        
+        // Clear the URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        console.error('OAuth callback failed:', data.error);
+      }
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   // Check connection status
   const checkConnection = useCallback(async () => {
     try {
@@ -68,19 +107,22 @@ export function useGoogleDrive() {
     }
   }, []);
 
-  // Connect to Google Drive (demo mode - simulated connection)
+  // Connect to Google Drive via OAuth
   const connect = useCallback(async () => {
     setIsConnecting(true);
     try {
-      const data = await apiPost('gdrive-connect');
-      if (data.ok) {
-        setConnection({
-          id: data.connectionId,
-          email: data.email,
-          connected: true,
-        });
+      // Get the redirect URI (current page)
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      
+      const data = await apiPost('gdrive-auth-url', { redirectUri });
+      
+      if (data.ok && data.authUrl) {
+        // Redirect to Google OAuth
+        window.location.href = data.authUrl;
         return true;
       }
+      
+      console.error('Failed to get auth URL:', data.error);
       return false;
     } catch (error) {
       console.error('Connect error:', error);
@@ -111,14 +153,18 @@ export function useGoogleDrive() {
   }, []);
 
   // Sync/index Google Drive files
-  const syncDrive = useCallback(async () => {
+  const syncDrive = useCallback(async (folderId?: string) => {
     if (!connection) return;
 
     setIsSyncing(true);
     setSyncStatus(prev => ({ ...prev, status: 'indexing', error: null }));
 
     try {
-      const data = await apiPost('gdrive-sync', { connectionId: connection.id });
+      const data = await apiPost('gdrive-sync', { 
+        connectionId: connection.id,
+        folderId: folderId || undefined,
+      });
+      
       if (data.ok) {
         setSyncStatus({
           filesCount: data.filesCount || 0,

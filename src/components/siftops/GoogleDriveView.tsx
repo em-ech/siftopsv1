@@ -1,19 +1,11 @@
-import { useEffect } from 'react';
-import { ArrowLeft, Cloud, RefreshCw, Link2Off, Search, FileText, File, FileSpreadsheet, Presentation } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Cloud, RefreshCw, Link2Off, Search, FileText, File, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGoogleDrive } from '@/hooks/useGoogleDrive';
 
 interface GoogleDriveViewProps {
   onBack: () => void;
   onSearch: (query: string) => void;
-}
-
-function getMimeTypeIcon(mimeType: string) {
-  if (mimeType?.includes('document')) return <FileText className="w-4 h-4" />;
-  if (mimeType?.includes('spreadsheet')) return <FileSpreadsheet className="w-4 h-4" />;
-  if (mimeType?.includes('presentation')) return <Presentation className="w-4 h-4" />;
-  if (mimeType?.includes('pdf')) return <File className="w-4 h-4" />;
-  return <File className="w-4 h-4" />;
 }
 
 export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
@@ -28,17 +20,25 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
     syncDrive,
   } = useGoogleDrive();
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   useEffect(() => {
     checkConnection();
   }, [checkConnection]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const query = formData.get('query') as string;
-    if (query?.trim()) {
-      onSearch(query);
+    if (searchQuery.trim()) {
+      onSearch(searchQuery);
     }
+  };
+
+  const handleConnect = async () => {
+    await connect();
+  };
+
+  const handleSync = async () => {
+    await syncDrive();
   };
 
   return (
@@ -68,16 +68,17 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
-              name="query"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               type="text"
-              placeholder="Search across Google Drive sources..."
+              placeholder="Search across your Google Drive..."
               disabled={!connection || syncStatus.chunksCount === 0}
               className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           <Button
             type="submit"
-            disabled={!connection || syncStatus.chunksCount === 0}
+            disabled={!connection || syncStatus.chunksCount === 0 || !searchQuery.trim()}
             className="px-6 rounded-xl"
           >
             Sift
@@ -88,8 +89,14 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
         <div className="border border-border rounded-xl p-6 bg-card mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Cloud className="w-6 h-6 text-primary" />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                connection ? 'bg-green-500/10' : 'bg-primary/10'
+              }`}>
+                {connection ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                ) : (
+                  <Cloud className="w-6 h-6 text-primary" />
+                )}
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">
@@ -115,11 +122,15 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
               </div>
             ) : (
               <Button
-                onClick={connect}
+                onClick={handleConnect}
                 disabled={isConnecting}
                 className="gap-2"
               >
-                <Cloud className="w-4 h-4" />
+                {isConnecting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Cloud className="w-4 h-4" />
+                )}
                 {isConnecting ? 'Connecting...' : 'Connect Google Drive'}
               </Button>
             )}
@@ -137,11 +148,11 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
                     ? `${syncStatus.filesCount} files, ${syncStatus.chunksCount} chunks indexed`
                     : syncStatus.status === 'indexing'
                     ? 'Indexing in progress...'
-                    : 'No content indexed yet'}
+                    : 'No content indexed yet - click "Index Drive" to start'}
                 </p>
               </div>
               <Button
-                onClick={syncDrive}
+                onClick={handleSync}
                 disabled={isSyncing}
                 variant={syncStatus.status === 'indexed' ? 'outline' : 'default'}
                 className="gap-2"
@@ -163,11 +174,19 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
                   {syncStatus.status === 'indexed' && syncStatus.syncedAt
                     ? `Last indexed: ${new Date(syncStatus.syncedAt).toLocaleString()}`
                     : syncStatus.status === 'indexing'
-                    ? 'Indexing files...'
+                    ? 'Indexing your Google Drive files...'
                     : syncStatus.status === 'error'
                     ? syncStatus.error || 'Error occurred'
                     : 'Not indexed'}
                 </span>
+              </div>
+            )}
+
+            {/* Error display */}
+            {syncStatus.status === 'error' && syncStatus.error && (
+              <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
+                <p className="text-sm text-destructive">{syncStatus.error}</p>
               </div>
             )}
 
@@ -190,19 +209,47 @@ export function GoogleDriveView({ onBack, onSearch }: GoogleDriveViewProps) {
                 ))}
               </div>
             </div>
+
+            {/* Indexing info */}
+            {syncStatus.status === 'idle' && (
+              <div className="mt-4 p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  <strong>How it works:</strong> Click "Index Drive" to fetch and index your Google Docs, 
+                  PDFs, and text files. We'll create semantic embeddings so you can search naturally 
+                  across all your content.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {/* Empty state when not connected */}
-        {!connection && (
+        {!connection && !isConnecting && (
           <div className="text-center py-12">
             <Cloud className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
               Connect Your Google Drive
             </h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
               Connect your Google Drive to index and search across your documents, 
               PDFs, and text files with semantic search.
+            </p>
+            <Button onClick={handleConnect} className="gap-2">
+              <Cloud className="w-4 h-4" />
+              Connect Google Drive
+            </Button>
+          </div>
+        )}
+
+        {/* Connecting state */}
+        {isConnecting && !connection && (
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Connecting to Google...
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Please complete the authentication in the popup window.
             </p>
           </div>
         )}
