@@ -23,6 +23,7 @@ interface ResultsViewProps {
   ragResponse: RAGResponse | null;
   isAsking: boolean;
   onAsk: (question: string) => void;
+  onGoHome: () => void;
 }
 
 function titleCase(s: string): string {
@@ -50,6 +51,7 @@ export function ResultsView({
   ragResponse,
   isAsking,
   onAsk,
+  onGoHome,
 }: ResultsViewProps) {
   const [localQuery, setLocalQuery] = useState(query);
   const [drawerVisible, setDrawerVisible] = useState(true);
@@ -74,7 +76,7 @@ export function ResultsView({
 
   return (
     <div className="min-h-screen bg-background">
-      <TCTopBar />
+      <TCTopBar onGoHome={onGoHome} />
 
       <main className="max-w-[1280px] mx-auto px-4 py-5 pb-10">
         <div className="flex gap-6">
