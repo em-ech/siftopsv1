@@ -216,18 +216,18 @@ function BundleSidePanel({
   });
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-5">
       {/* Header */}
-      <h4 className="font-semibold text-base mb-3">Evidence Bundle</h4>
+      <h4 className="font-semibold text-base mb-4">Evidence Bundle</h4>
 
       {/* Status row */}
       <div className="flex items-center gap-2 mb-4">
         {locked ? (
-          <span className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium">
+          <span className="px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium">
             Locked
           </span>
         ) : (
-          <span className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+          <span className="px-3 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium">
             Unlocked
           </span>
         )}
@@ -237,40 +237,32 @@ function BundleSidePanel({
       </div>
 
       {/* Action buttons */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-3 mb-5">
         <button
           onClick={onLock}
           disabled={locked || bundleDocIds.length === 0}
-          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Lock className="w-4 h-4" />
           Lock
         </button>
         <button
           onClick={onClear}
-          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-secondary transition-colors"
+          className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors"
         >
           <Trash2 className="w-4 h-4" />
           Clear
         </button>
       </div>
 
-      {/* Source list */}
-      <div className="flex flex-col gap-1.5 max-h-40 overflow-auto">
+      {/* Source list - simple text rows */}
+      <div className="flex flex-col gap-2 max-h-48 overflow-auto">
         {bundleItems.map(({ docId, title }) => (
           <div
             key={docId}
-            className="text-sm text-foreground py-1.5 px-2 bg-secondary/50 rounded truncate flex items-center gap-2"
+            className="text-sm text-foreground py-2 px-3 bg-muted/50 rounded-lg truncate"
           >
-            <span className="flex-1 truncate">{title}</span>
-            {!locked && (
-              <button
-                onClick={() => onRemove(docId)}
-                className="p-0.5 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
-              >
-                <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-              </button>
-            )}
+            {title}
           </div>
         ))}
       </div>
