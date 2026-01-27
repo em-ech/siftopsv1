@@ -1,16 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GDriveConnection, GDriveSyncStatus, GDriveSearchResult } from '@/types/gdrive';
 import { Bundle, RAGResponse } from '@/types/siftops';
-
-const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+import { API_BASE, getAuthHeaders } from '@/config/api';
 
 async function apiPost(endpoint: string, body: Record<string, unknown> = {}) {
   const response = await fetch(`${API_BASE}/${endpoint}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body),
   });
   return response.json();

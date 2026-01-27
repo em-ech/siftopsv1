@@ -1,6 +1,30 @@
 import { useState, useCallback } from 'react';
-import { SearchResult, Bundle, SyncStatus, RAGResponse } from '@/types/siftops';
-import { API_BASE, getAuthHeaders, USE_LOCAL_SERVER } from '@/config/api';
+import { API_BASE, getAuthHeaders } from '@/config/api';
+import { SearchResult, Bundle, RAGResponse } from '@/types/siftops';
+
+interface Source {
+  sourceId: string;
+  name: string;
+  baseUrl: string;
+  status: 'not_indexed' | 'indexing' | 'indexed' | 'error';
+  docs: number;
+  chunks: number;
+  lastSync: string | null;
+  lastError: string | null;
+}
+
+interface SourcesStatus {
+  sources: Source[];
+  totals: { totalDocs: number };
+}
+
+async function apiGet(endpoint: string) {
+  const response = await fetch(`${API_BASE}/${endpoint}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return response.json();
+}
 
 async function apiPost(endpoint: string, body: Record<string, unknown> = {}) {
   const response = await fetch(`${API_BASE}/${endpoint}`, {
@@ -11,77 +35,67 @@ async function apiPost(endpoint: string, body: Record<string, unknown> = {}) {
   return response.json();
 }
 
-async function apiGet(endpoint: string) {
-  const response = await fetch(`${API_BASE}/${endpoint}`, {
-    method: USE_LOCAL_SERVER ? 'GET' : 'POST',
-    headers: getAuthHeaders(),
-    ...(USE_LOCAL_SERVER ? {} : { body: JSON.stringify({}) }),
+export function useLocalSiftOps() {
+  // Sources state
+  const [sourcesStatus, setSourcesStatus] = useState<SourcesStatus>({
+    sources: [],
+    totals: { totalDocs: 0 },
   });
-  return response.json();
-}
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
 
-export function useSiftOps() {
+  // Search state
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchReason, setSearchReason] = useState<string | null>(null);
-  const [currentQuery, setCurrentQuery] = useState('');
 
-  const [status, setStatus] = useState<SyncStatus>({
-    docs: 0,
-    chunks: 0,
-    syncedAt: null,
-    status: 'idle',
-  });
-  const [isSyncing, setIsSyncing] = useState(false);
-
+  // Bundle state
   const [bundle, setBundle] = useState<Bundle | null>(null);
-  
+
+  // RAG state
   const [ragResponse, setRagResponse] = useState<RAGResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
-  const refreshStatus = useCallback(async () => {
+  // Fetch sources list
+  const refreshSources = useCallback(async () => {
     try {
-      const data = await apiGet('status');
+      const data = await apiGet('source/list');
       if (data.ok) {
-        setStatus({
-          docs: data.docs || 0,
-          chunks: data.chunks || 0,
-          syncedAt: data.syncedAt || null,
-          status: data.status || 'idle',
+        setSourcesStatus({
+          sources: data.sources || [],
+          totals: data.totals || { totalDocs: 0 },
         });
       }
     } catch (error) {
-      console.error('Status refresh error:', error);
+      console.error('Failed to fetch sources:', error);
     }
   }, []);
 
-  const syncTechCrunch = useCallback(async () => {
+  // Sync a specific source
+  const syncSource = useCallback(async (sourceId: string) => {
     setIsSyncing(true);
-    setStatus(prev => ({ ...prev, status: 'syncing' }));
+    setSyncingSourceId(sourceId);
     
     try {
-      const data = await apiPost('sync-techcrunch');
+      const data = await apiPost('source/sync', { sourceId });
       if (data.ok) {
-        setStatus({
-          docs: data.totalDocs || data.docs || 0,
-          chunks: data.totalChunks || data.chunks || 0,
-          syncedAt: new Date().toISOString(),
-          status: data.hasMore ? 'partial' : 'complete',
-        });
-      } else {
-        setStatus(prev => ({ ...prev, status: 'error' }));
+        setSourcesStatus(prev => ({
+          sources: prev.sources.map(s => 
+            s.sourceId === sourceId ? data.source : s
+          ),
+          totals: data.totals || prev.totals,
+        }));
       }
     } catch (error) {
       console.error('Sync error:', error);
-      setStatus(prev => ({ ...prev, status: 'error' }));
     } finally {
       setIsSyncing(false);
-      // Refresh status to get accurate counts
-      await refreshStatus();
+      setSyncingSourceId(null);
     }
-  }, [refreshStatus]);
+  }, []);
 
-  const search = useCallback(async (query: string) => {
+  // Search
+  const search = useCallback(async (query: string, sourceIds?: string[]) => {
     if (!query.trim()) {
       setResults([]);
       setSearchReason(null);
@@ -89,13 +103,23 @@ export function useSiftOps() {
     }
 
     setIsSearching(true);
-    setCurrentQuery(query);
     setSearchReason(null);
 
     try {
-      const data = await apiPost('search', { query });
+      const data = await apiPost('search', { query, sourceIds });
       if (data.ok) {
-        setResults(data.results || []);
+        // Map to SearchResult format
+        const mappedResults: SearchResult[] = (data.results || []).map((r: any) => ({
+          docId: r.docId,
+          type: r.type,
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          score: r.score,
+          sourceName: r.sourceName,
+          sourceId: r.sourceId,
+        }));
+        setResults(mappedResults);
         setSearchReason(data.reason || null);
       } else {
         setResults([]);
@@ -110,9 +134,10 @@ export function useSiftOps() {
     }
   }, []);
 
+  // Bundle operations
   const createBundle = useCallback(async (): Promise<string | null> => {
     try {
-      const data = await apiPost('bundle', { action: 'create' });
+      const data = await apiPost('bundle/create');
       if (data.ok) {
         const newBundle = {
           bundleId: data.bundleId,
@@ -138,8 +163,7 @@ export function useSiftOps() {
     }
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'add',
+      const data = await apiPost('bundle/add', {
         bundleId: bundleIdToUse,
         docId,
       });
@@ -159,8 +183,7 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'remove',
+      const data = await apiPost('bundle/remove', {
         bundleId: bundle.bundleId,
         docId,
       });
@@ -176,8 +199,7 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'lock',
+      const data = await apiPost('bundle/lock', {
         bundleId: bundle.bundleId,
       });
       if (data.ok) {
@@ -192,8 +214,7 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'clear',
+      const data = await apiPost('bundle/clear', {
         bundleId: bundle.bundleId,
       });
       if (data.ok) {
@@ -205,6 +226,7 @@ export function useSiftOps() {
     }
   }, [bundle]);
 
+  // Ask question (RAG)
   const askQuestion = useCallback(async (question: string) => {
     if (!bundle?.locked || !question.trim()) return;
 
@@ -238,28 +260,13 @@ export function useSiftOps() {
     }
   }, [bundle]);
 
-  const submitFeedback = useCallback(async (docId: string, helpful: boolean) => {
-    if (!currentQuery) return;
-
-    try {
-      await apiPost('feedback', {
-        query: currentQuery,
-        docId,
-        label: helpful ? 1 : 0,
-      });
-      // Re-search to get updated rankings
-      await search(currentQuery);
-    } catch (error) {
-      console.error('Feedback error:', error);
-    }
-  }, [currentQuery, search]);
-
   return {
-    // Status
-    status,
+    // Sources
+    sourcesStatus,
+    refreshSources,
+    syncSource,
     isSyncing,
-    refreshStatus,
-    syncTechCrunch,
+    syncingSourceId,
 
     // Search
     results,
@@ -279,8 +286,5 @@ export function useSiftOps() {
     ragResponse,
     isAsking,
     askQuestion,
-
-    // Feedback
-    submitFeedback,
   };
 }
