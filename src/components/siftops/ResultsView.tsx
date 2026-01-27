@@ -15,8 +15,8 @@ interface ResultsViewProps {
   isSyncing: boolean;
   onSync: () => void;
   bundle: Bundle | null;
-  onCreateBundle: () => void;
-  onAddToBundle: (docId: string) => void;
+  onCreateBundle: () => Promise<string | null>;
+  onAddToBundle: (docId: string, bundleId?: string) => void;
   onRemoveFromBundle: (docId: string) => void;
   onLockBundle: () => void;
   onClearBundle: () => void;
@@ -57,10 +57,12 @@ export function ResultsView({
   };
 
   const handleAddToBundle = async (docId: string) => {
-    if (!bundle) {
-      await onCreateBundle();
+    let bundleId = bundle?.bundleId;
+    if (!bundleId) {
+      bundleId = await onCreateBundle();
+      if (!bundleId) return;
     }
-    onAddToBundle(docId);
+    onAddToBundle(docId, bundleId);
     setDrawerVisible(true);
   };
 

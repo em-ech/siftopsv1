@@ -117,33 +117,45 @@ export function useSiftOps() {
     }
   }, []);
 
-  const createBundle = useCallback(async () => {
+  const createBundle = useCallback(async (): Promise<string | null> => {
     try {
       const data = await apiPost('bundle', { action: 'create' });
       if (data.ok) {
-        setBundle({
+        const newBundle = {
           bundleId: data.bundleId,
           docIds: [],
           locked: false,
-        });
+        };
+        setBundle(newBundle);
         setRagResponse(null);
+        return data.bundleId;
       }
+      return null;
     } catch (error) {
       console.error('Create bundle error:', error);
+      return null;
     }
   }, []);
 
-  const addToBundle = useCallback(async (docId: string) => {
-    if (!bundle) return;
+  const addToBundle = useCallback(async (docId: string, existingBundleId?: string) => {
+    const bundleIdToUse = existingBundleId || bundle?.bundleId;
+    if (!bundleIdToUse) {
+      console.error('No bundle to add to');
+      return;
+    }
 
     try {
       const data = await apiPost('bundle', {
         action: 'add',
-        bundleId: bundle.bundleId,
+        bundleId: bundleIdToUse,
         docId,
       });
       if (data.ok) {
-        setBundle(prev => prev ? { ...prev, docIds: data.docIds || [] } : null);
+        setBundle(prev => prev ? { ...prev, docIds: data.docIds || [] } : {
+          bundleId: bundleIdToUse,
+          docIds: data.docIds || [],
+          locked: false,
+        });
       }
     } catch (error) {
       console.error('Add to bundle error:', error);
