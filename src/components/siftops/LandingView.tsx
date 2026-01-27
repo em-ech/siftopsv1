@@ -60,7 +60,7 @@ export function LandingView({ indexed, isSyncing, onSearch, onSync }: LandingVie
             className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Search className="w-4 h-4" />
-            Search
+            Sift
           </button>
           <button
             onClick={onSync}
