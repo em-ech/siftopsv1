@@ -16,11 +16,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get sync status
+    // Get sync status - use the fixed UUID row
     const { data: syncStatus } = await supabase
       .from("sync_status")
       .select("*")
-      .limit(1)
+      .eq("id", "00000000-0000-0000-0000-000000000001")
       .maybeSingle();
 
     // Get actual counts
