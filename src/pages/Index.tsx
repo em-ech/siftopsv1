@@ -74,6 +74,7 @@ const Index = () => {
       ragResponse={ragResponse}
       isAsking={isAsking}
       onAsk={askQuestion}
+      onGoHome={() => setViewMode('landing')}
     />
   );
 };
