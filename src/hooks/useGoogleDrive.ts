@@ -42,19 +42,8 @@ export function useGoogleDrive() {
   const [ragResponse, setRagResponse] = useState<RAGResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
-  // Check for OAuth callback on mount
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    
-    if (code && state) {
-      // Handle OAuth callback
-      handleOAuthCallback(code);
-    }
-  }, []);
-
-  const handleOAuthCallback = async (code: string) => {
+  // Handle OAuth callback
+  const handleOAuthCallback = useCallback(async (code: string) => {
     setIsConnecting(true);
     try {
       // Get the redirect URI (current page without query params)
@@ -79,7 +68,18 @@ export function useGoogleDrive() {
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, []);
+
+  // Check for OAuth callback on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (code && state) {
+      handleOAuthCallback(code);
+    }
+  }, [handleOAuthCallback]);
 
   // Check connection status
   const checkConnection = useCallback(async () => {
