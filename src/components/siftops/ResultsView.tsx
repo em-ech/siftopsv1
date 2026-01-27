@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, RefreshCw, X, Lock } from 'lucide-react';
+import { Search, RefreshCw, X, Lock, Trash2 } from 'lucide-react';
 import { TCTopBar } from './TCTopBar';
 import { TCResultCard } from './TCResultCard';
 import { BundleDrawer } from './BundleDrawer';
@@ -221,80 +221,63 @@ function BundleSidePanel({
   });
 
   return (
-    <div className={`rounded-lg p-4 border-2 ${
-      locked 
-        ? 'bg-emerald-50 border-emerald-300' 
-        : 'bg-background border-primary/30'
-    }`}>
+    <div className="rounded-lg border border-border bg-card p-4">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`w-2 h-2 rounded-full ${locked ? 'bg-emerald-500' : 'bg-primary animate-pulse'}`} />
-        <h4 className="font-bold text-sm">Evidence Bundle</h4>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-          locked 
-            ? 'bg-emerald-200 text-emerald-800' 
-            : 'bg-primary/10 text-primary'
-        }`}>
-          {bundleDocIds.length}
+      <h4 className="font-semibold text-base mb-3">Evidence Bundle</h4>
+
+      {/* Status row */}
+      <div className="flex items-center gap-2 mb-4">
+        {locked ? (
+          <span className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium">
+            Locked
+          </span>
+        ) : (
+          <span className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+            Unlocked
+          </span>
+        )}
+        <span className="text-sm text-muted-foreground">
+          {bundleDocIds.length} source{bundleDocIds.length !== 1 ? 's' : ''}
         </span>
       </div>
 
-      {/* List */}
-      <div className="flex flex-col gap-2 max-h-48 overflow-auto">
+      {/* Action buttons */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={onLock}
+          disabled={locked || bundleDocIds.length === 0}
+          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Lock className="w-4 h-4" />
+          Lock
+        </button>
+        <button
+          onClick={onClear}
+          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium flex items-center justify-center gap-2 hover:bg-secondary transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          Clear
+        </button>
+      </div>
+
+      {/* Source list */}
+      <div className="flex flex-col gap-1.5 max-h-40 overflow-auto">
         {bundleItems.map(({ docId, title }) => (
           <div
             key={docId}
-            className={`text-xs border rounded-lg p-2 flex items-start gap-2 ${
-              locked 
-                ? 'bg-white border-emerald-200 text-emerald-900' 
-                : 'bg-background border-border text-foreground'
-            }`}
+            className="text-sm text-foreground py-1.5 px-2 bg-secondary/50 rounded truncate flex items-center gap-2"
           >
-            <span className="flex-1 line-clamp-2">{title}</span>
+            <span className="flex-1 truncate">{title}</span>
             {!locked && (
               <button
                 onClick={() => onRemove(docId)}
-                className="p-1 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
+                className="p-0.5 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
               >
                 <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
               </button>
             )}
           </div>
         ))}
-      </div>
-
-      {/* Actions */}
-      <div className="mt-3 flex gap-2">
-        {!locked ? (
-          <>
-            <button
-              onClick={onClear}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary hover:bg-destructive/10 hover:text-destructive transition-colors"
-            >
-              Clear
-            </button>
-            <button
-              onClick={onLock}
-              className="px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1"
-            >
-              <Lock className="w-3 h-3" />
-              Lock
-            </button>
-          </>
-        ) : (
-          <div className="flex items-center gap-2 w-full">
-            <span className="text-xs text-emerald-700 flex items-center gap-1">
-              <Lock className="w-3 h-3" />
-              Locked
-            </span>
-            <button
-              onClick={onClear}
-              className="ml-auto px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive transition-colors"
-            >
-              Unlock
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
