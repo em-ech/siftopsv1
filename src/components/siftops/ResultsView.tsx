@@ -68,7 +68,7 @@ export function ResultsView({
     <div className="min-h-screen bg-background">
       <TCTopBar onGoHome={onGoHome} />
 
-      <main className="max-w-[1200px] mx-auto px-4 py-6 pb-10">
+      <main className="max-w-[1200px] mx-auto px-4 py-6 pb-10 ml-[5%]">
         <div className="flex gap-10 justify-center">
           {/* Left column - Search results (narrower) */}
           <div className="w-[700px] flex-shrink-0">
