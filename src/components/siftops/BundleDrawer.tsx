@@ -29,11 +29,20 @@ export function BundleDrawer({
   });
 
   return (
-    <div className="fixed right-4 bottom-4 w-80 max-w-[calc(100vw-32px)] bg-background border border-border rounded-2xl p-3 shadow-lg z-50 animate-slide-up">
+    <div className={`fixed right-4 bottom-4 w-80 max-w-[calc(100vw-32px)] rounded-2xl p-3 shadow-lg z-50 animate-slide-up border-2 ${
+      locked 
+        ? 'bg-emerald-50 border-emerald-300' 
+        : 'bg-background border-primary/30'
+    }`}>
       {/* Header */}
       <div className="flex items-center gap-2.5">
+        <div className={`w-2 h-2 rounded-full ${locked ? 'bg-emerald-500' : 'bg-primary animate-pulse'}`} />
         <h4 className="font-extrabold text-sm">Evidence Bundle</h4>
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
+          locked 
+            ? 'bg-emerald-200 text-emerald-800' 
+            : 'bg-primary/10 text-primary'
+        }`}>
           {bundleDocIds.length} source{bundleDocIds.length !== 1 ? 's' : ''}
         </span>
         <button
@@ -50,16 +59,20 @@ export function BundleDrawer({
         {bundleItems.map(({ docId, title }) => (
           <div
             key={docId}
-            className="text-xs text-foreground border border-border rounded-lg p-2 flex items-start gap-2"
+            className={`text-xs border rounded-lg p-2 flex items-start gap-2 ${
+              locked 
+                ? 'bg-white border-emerald-200 text-emerald-900' 
+                : 'bg-background border-border text-foreground'
+            }`}
           >
             <span className="flex-1 line-clamp-2">{title}</span>
             {!locked && (
               <button
                 onClick={() => onRemove(docId)}
-                className="p-1 rounded hover:bg-secondary transition-colors flex-shrink-0"
+                className="p-1 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
                 aria-label="Remove from bundle"
               >
-                <Trash2 className="w-3 h-3 text-muted-foreground" />
+                <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
               </button>
             )}
           </div>
@@ -72,24 +85,32 @@ export function BundleDrawer({
           <>
             <button
               onClick={onClear}
-              className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-secondary hover:bg-accent transition-colors"
+              className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-secondary hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors"
             >
               Clear
             </button>
             <button
               onClick={onLock}
-              className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-foreground text-background hover:opacity-90 transition-opacity flex items-center gap-1.5"
+              className="px-3 py-2 rounded-full text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
             >
               <Lock className="w-3 h-3" />
-              Lock Bundle
+              Lock & Enable RAG
             </button>
           </>
         )}
         {locked && (
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Lock className="w-3 h-3" />
-            Bundle locked for RAG
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-emerald-700 flex items-center gap-1.5">
+              <Lock className="w-3 h-3" />
+              Locked — RAG enabled
+            </span>
+            <button
+              onClick={onClear}
+              className="px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Unlock
+            </button>
+          </div>
         )}
       </div>
     </div>

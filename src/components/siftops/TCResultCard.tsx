@@ -63,7 +63,11 @@ export function TCResultCard({
         <button
           onClick={() => onAddToBundle(result.docId)}
           disabled={bundleLocked || isInBundle}
-          className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-secondary hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          className={`px-3 py-2 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+            isInBundle 
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 cursor-default' 
+              : 'border-border bg-secondary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
         >
           {isInBundle ? (
             <>
@@ -73,7 +77,7 @@ export function TCResultCard({
           ) : (
             <>
               <Plus className="w-3 h-3" />
-              Add
+              Add to Bundle
             </>
           )}
         </button>
