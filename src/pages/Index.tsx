@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { LandingView } from '@/components/siftops/LandingView';
+import { WordPressSitesView } from '@/components/siftops/WordPressSitesView';
 import { ResultsView } from '@/components/siftops/ResultsView';
 import { useSiftOps } from '@/hooks/useSiftOps';
 
-type ViewMode = 'landing' | 'results';
+type ViewMode = 'landing' | 'wordpress' | 'results';
 
 const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
@@ -33,6 +34,13 @@ const Index = () => {
     refreshStatus();
   }, [refreshStatus]);
 
+  const handleSelectSourceType = (type: 'wordpress' | 'local' | 'onedrive' | 'gdrive') => {
+    if (type === 'wordpress') {
+      setViewMode('wordpress');
+    }
+    // Other source types coming soon
+  };
+
   const handleSearch = async (query: string) => {
     setCurrentQuery(query);
     setViewMode('results');
@@ -41,15 +49,22 @@ const Index = () => {
 
   const handleSync = async () => {
     await syncTechCrunch();
-    // After sync, transition to results view
-    setViewMode('results');
   };
 
   if (viewMode === 'landing') {
     return (
       <LandingView
+        onSelectSourceType={handleSelectSourceType}
+      />
+    );
+  }
+
+  if (viewMode === 'wordpress') {
+    return (
+      <WordPressSitesView
         indexed={status.docs}
         isSyncing={isSyncing}
+        onBack={() => setViewMode('landing')}
         onSearch={handleSearch}
         onSync={handleSync}
       />
