@@ -26,13 +26,6 @@ interface ResultsViewProps {
   onGoHome: () => void;
 }
 
-function titleCase(s: string): string {
-  return s
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
 
 export function ResultsView({
   query,
@@ -72,41 +65,43 @@ export function ResultsView({
   };
 
   const foundCount = results.length;
-  const displayTitle = query ? titleCase(query) : 'Search';
 
   return (
     <div className="min-h-screen bg-background">
       <TCTopBar onGoHome={onGoHome} />
 
-      <main className="max-w-[1280px] mx-auto px-4 py-5 pb-10">
+      <main className="max-w-[1280px] mx-auto px-4 py-6 pb-10">
         <div className="flex gap-6">
           {/* Left column - Search results */}
           <div className="flex-1 min-w-0">
-            {/* Query title */}
-            <h1 className="text-5xl md:text-6xl font-extrabold leading-none mt-5 mb-2.5 tracking-tight" style={{ letterSpacing: '-1.2px' }}>
-              {displayTitle}
-            </h1>
-
-            {/* Found count */}
-            <p className="text-sm text-muted-foreground mb-3.5">
-              {foundCount > 0
-                ? `Found ${foundCount} result${foundCount !== 1 ? 's' : ''}.`
-                : 'Found 0 results.'}
+            {/* Header */}
+            <h1 className="text-3xl font-bold text-foreground mb-1">SiftOps</h1>
+            <p className="text-sm text-muted-foreground mb-4">
+              Semantic search with evidence-based RAG
             </p>
 
+            {/* Found count */}
+            {query && (
+              <p className="text-sm text-muted-foreground mb-3">
+                {foundCount > 0
+                  ? `Found ${foundCount} result${foundCount !== 1 ? 's' : ''} for "${query}"`
+                  : `No results for "${query}"`}
+              </p>
+            )}
+
             {/* Search row */}
-            <form onSubmit={handleSearch} className="flex gap-2.5 items-center mb-4">
+            <form onSubmit={handleSearch} className="flex gap-2 items-center mb-5">
               <input
                 type="text"
                 value={localQuery}
                 onChange={(e) => setLocalQuery(e.target.value)}
-                placeholder="Search TechCrunch"
-                className="flex-1 px-4 py-3 border border-border rounded-full text-base bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                placeholder="Search sources..."
+                className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               />
               <button
                 type="submit"
                 disabled={isSearching || !localQuery.trim()}
-                className="px-4 py-2.5 bg-foreground text-background rounded-full text-sm font-medium border border-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
                 {isSearching ? 'Searching...' : 'Search'}
@@ -115,7 +110,7 @@ export function ResultsView({
                 type="button"
                 onClick={onSync}
                 disabled={isSyncing}
-                className="px-4 py-2.5 bg-secondary text-secondary-foreground rounded-full text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium border border-border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                 Sync
