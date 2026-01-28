@@ -1,4 +1,4 @@
-import { Search, Globe, HardDrive, Cloud } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import { SourceTypeCard } from './SourceTypeCard';
 
 interface LandingViewProps {
@@ -21,44 +21,23 @@ export function LandingView({ onSelectSourceType }: LandingViewProps) {
 
         {/* Tagline */}
         <p className="text-muted-foreground text-center text-lg">
-          Semantic search with evidence-based RAG
+          Mozilla Blog indexing with local RAG
         </p>
 
-        {/* Source type cards */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
+        {/* Single source card for Mozilla */}
+        <div className="w-full max-w-md">
           <SourceTypeCard
             icon={Globe}
-            title="WordPress"
-            description="Search WordPress sites like TechCrunch, Mozilla Blog"
+            title="Mozilla Blog"
+            description="Index and search blog.mozilla.org with local Ollama"
             enabled={true}
             onClick={() => onSelectSourceType('wordpress')}
-          />
-          <SourceTypeCard
-            icon={Cloud}
-            title="Google Drive"
-            description="Connect and search your Google Drive files"
-            enabled={false}
-            onClick={() => {}}
-          />
-          <SourceTypeCard
-            icon={HardDrive}
-            title="Local Harddrive"
-            description="Index and search local files"
-            enabled={false}
-            onClick={() => {}}
-          />
-          <SourceTypeCard
-            icon={Cloud}
-            title="OneDrive"
-            description="Connect your Microsoft OneDrive"
-            enabled={false}
-            onClick={() => {}}
           />
         </div>
 
         {/* Footer */}
         <p className="text-xs text-muted-foreground">
-          Select a source type to get started
+          Click above to get started
         </p>
       </div>
     </div>
