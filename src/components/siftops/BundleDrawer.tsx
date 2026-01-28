@@ -56,31 +56,36 @@ export function BundleDrawer({
       </div>
 
       {/* List with ScrollArea */}
-      <ScrollArea className="mt-2.5 h-56">
-        <div className="flex flex-col gap-2 pr-3">
-          {bundleItems.map(({ docId, title }) => (
-            <div
-              key={docId}
-              className={`text-xs border rounded-lg p-2 flex items-start gap-2 ${
-                locked 
-                  ? 'bg-white border-emerald-200 text-emerald-900' 
-                  : 'bg-background border-border text-foreground'
-              }`}
-            >
-              <span className="flex-1 line-clamp-2">{title}</span>
-              {!locked && (
-                <button
-                  onClick={() => onRemove(docId)}
-                  className="p-1 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
-                  aria-label="Remove from bundle"
-                >
-                  <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+      <div 
+        className="mt-2.5"
+        onWheel={(e) => e.stopPropagation()}
+      >
+        <ScrollArea className="h-48">
+          <div className="flex flex-col gap-2 pr-3">
+            {bundleItems.map(({ docId, title }) => (
+              <div
+                key={docId}
+                className={`text-xs border rounded-lg p-2 flex items-start gap-2 ${
+                  locked 
+                    ? 'bg-white border-emerald-200 text-emerald-900' 
+                    : 'bg-background border-border text-foreground'
+                }`}
+              >
+                <span className="flex-1 line-clamp-2">{title}</span>
+                {!locked && (
+                  <button
+                    onClick={() => onRemove(docId)}
+                    className="p-1 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
+                    aria-label="Remove from bundle"
+                  >
+                    <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
 
       {/* Actions */}
       <div className="mt-2.5 flex gap-2.5">
