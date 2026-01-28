@@ -37,7 +37,7 @@ export function SearchSection({ onSearch, isSearching }: SearchSectionProps) {
           ) : (
             <Search className="w-4 h-4" />
           )}
-          Search
+          Sift
         </Button>
       </div>
       

@@ -68,8 +68,8 @@ export function ResultsView({
     <div className="min-h-screen bg-background">
       <TCTopBar onGoHome={onGoHome} />
 
-      <main className="max-w-[1200px] mx-auto px-4 py-6 pb-10 mr-[5%]">
-        <div className="flex gap-10 justify-center">
+        <main className="max-w-[1200px] px-4 py-6 pb-10 ml-4">
+        <div className="flex gap-10">
           {/* Left column - Search results (narrower) */}
           <div className="w-[700px] flex-shrink-0">
 
@@ -88,7 +88,7 @@ export function ResultsView({
                 className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
-                {isSearching ? 'Searching...' : 'Search'}
+                {isSearching ? 'Sifting...' : 'Sift'}
               </button>
             </form>
 
