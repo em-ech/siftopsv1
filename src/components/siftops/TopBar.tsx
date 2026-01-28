@@ -29,7 +29,7 @@ export function TopBar({ status, isSyncing, onSync }: TopBarProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-background border-b border-border">
-      <div className="max-w-[960px] mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="px-4 h-14 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">SiftOps</h1>
         
         <div className="flex items-center gap-3">
