@@ -50,6 +50,14 @@ export function AskPanel({ isLocked, ragResponse, isAsking, onAsk }: AskPanelPro
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (question.trim() && isLocked && !isAsking) {
+                  onAsk(question);
+                }
+              }
+            }}
             placeholder="What did Anthropic announce?"
             rows={2}
             className="flex-1 px-3 py-3 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
