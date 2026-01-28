@@ -68,10 +68,10 @@ export function ResultsView({
     <div className="min-h-screen bg-background">
       <TCTopBar onGoHome={onGoHome} />
 
-        <main className="max-w-[1200px] px-4 py-6 pb-10 ml-4">
-        <div className="flex gap-10">
-          {/* Left column - Search results (narrower) */}
-          <div className="w-[700px] flex-shrink-0">
+        <main className="px-6 py-6 pb-10">
+        <div className="flex gap-8">
+          {/* Left column - Search results */}
+          <div className="w-[650px] flex-shrink-0">
 
             {/* Search row */}
             <form onSubmit={handleSearch} className="flex gap-2 items-center mb-2">
@@ -125,9 +125,9 @@ export function ResultsView({
             </div>
           </div>
 
-          {/* Right column - Combined Evidence Bundle + Ask panel (wider, blue border) */}
-          <div className="w-[480px] flex-shrink-0 hidden lg:block pt-[72px]">
-            <div className="sticky top-20">
+          {/* Right column - Evidence Bundle + Ask panel */}
+          <div className="w-[400px] flex-shrink-0 hidden lg:block">
+            <div className="sticky top-4">
               <CombinedBundleAskPanel
                 bundleDocIds={bundle?.docIds || []}
                 results={results}
