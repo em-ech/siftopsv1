@@ -97,8 +97,6 @@ const Index = () => {
       <WordPressSitesView
         indexed={status.docs}
         isSyncing={isSyncing}
-        status={status.status}
-        lastSync={status.syncedAt}
         onBack={() => setViewMode('landing')}
         onSearch={handleSearch}
         onSync={handleSync}
