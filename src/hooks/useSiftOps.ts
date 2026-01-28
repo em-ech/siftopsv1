@@ -41,39 +41,66 @@ export function useSiftOps() {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const data = await apiGet('status');
-      if (data.ok) {
-        setStatus({
-          docs: data.docs || 0,
-          chunks: data.chunks || 0,
-          syncedAt: data.syncedAt || null,
-          status: data.status || 'idle',
-        });
+      if (USE_LOCAL_SERVER) {
+        // Local server uses source/list endpoint
+        const data = await apiGet('source/list');
+        if (data.ok && data.sources) {
+          const mozilla = data.sources.find((s: any) => s.sourceId === 'mozilla');
+          if (mozilla) {
+            setStatus({
+              docs: mozilla.docs || 0,
+              chunks: mozilla.chunks || 0,
+              syncedAt: mozilla.lastSync || null,
+              status: mozilla.status === 'indexed' ? 'complete' : mozilla.status || 'idle',
+            });
+          }
+        }
+      } else {
+        const data = await apiGet('status');
+        if (data.ok) {
+          setStatus({
+            docs: data.docs || 0,
+            chunks: data.chunks || 0,
+            syncedAt: data.syncedAt || null,
+            status: data.status || 'idle',
+          });
+        }
       }
     } catch (error) {
       console.error('Status refresh error:', error);
     }
   }, []);
 
-  const syncTechCrunch = useCallback(async () => {
+  const syncMozilla = useCallback(async () => {
     setIsSyncing(true);
     setStatus(prev => ({ ...prev, status: 'syncing' }));
     
-    // Sync TechCrunch only
     try {
-      console.log('Syncing TechCrunch...');
-      const data = await apiPost('sync-wordpress', { sourceId: 'techcrunch' });
-      if (data.ok) {
-        console.log(`TechCrunch: ${data.docsInserted} docs, ${data.chunksCreated} chunks`);
-        setStatus({
-          docs: data.totalDocs || 0,
-          chunks: data.totalChunks || 0,
-          syncedAt: new Date().toISOString(),
-          status: 'complete',
-        });
+      console.log('Syncing Mozilla Blog...');
+      if (USE_LOCAL_SERVER) {
+        // Local server uses source/sync endpoint
+        const data = await apiPost('source/sync', { sourceId: 'mozilla' });
+        if (data.ok && data.source) {
+          console.log(`Mozilla: ${data.source.docs} docs, ${data.source.chunks} chunks`);
+          setStatus({
+            docs: data.source.docs || 0,
+            chunks: data.source.chunks || 0,
+            syncedAt: data.source.lastSync || new Date().toISOString(),
+            status: 'complete',
+          });
+        }
+      } else {
+        const data = await apiPost('sync-wordpress', { sourceId: 'mozilla' });
+        if (data.ok) {
+          console.log(`Mozilla: ${data.docsInserted} docs, ${data.chunksCreated} chunks`);
+          setStatus({
+            docs: data.totalDocs || 0,
+            chunks: data.totalChunks || 0,
+            syncedAt: new Date().toISOString(),
+            status: 'complete',
+          });
+        }
       }
-      
-      setStatus(prev => ({ ...prev, status: 'complete' }));
     } catch (error) {
       console.error('Sync error:', error);
       setStatus(prev => ({ ...prev, status: 'error' }));
@@ -114,7 +141,9 @@ export function useSiftOps() {
 
   const createBundle = useCallback(async (): Promise<string | null> => {
     try {
-      const data = await apiPost('bundle', { action: 'create' });
+      const endpoint = USE_LOCAL_SERVER ? 'bundle/create' : 'bundle';
+      const body = USE_LOCAL_SERVER ? {} : { action: 'create' };
+      const data = await apiPost(endpoint, body);
       if (data.ok) {
         const newBundle = {
           bundleId: data.bundleId,
@@ -140,11 +169,11 @@ export function useSiftOps() {
     }
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'add',
-        bundleId: bundleIdToUse,
-        docId,
-      });
+      const endpoint = USE_LOCAL_SERVER ? 'bundle/add' : 'bundle';
+      const body = USE_LOCAL_SERVER 
+        ? { bundleId: bundleIdToUse, docId }
+        : { action: 'add', bundleId: bundleIdToUse, docId };
+      const data = await apiPost(endpoint, body);
       if (data.ok) {
         setBundle(prev => prev ? { ...prev, docIds: data.docIds || [] } : {
           bundleId: bundleIdToUse,
@@ -161,11 +190,11 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'remove',
-        bundleId: bundle.bundleId,
-        docId,
-      });
+      const endpoint = USE_LOCAL_SERVER ? 'bundle/remove' : 'bundle';
+      const body = USE_LOCAL_SERVER 
+        ? { bundleId: bundle.bundleId, docId }
+        : { action: 'remove', bundleId: bundle.bundleId, docId };
+      const data = await apiPost(endpoint, body);
       if (data.ok) {
         setBundle(prev => prev ? { ...prev, docIds: data.docIds || [] } : null);
       }
@@ -178,10 +207,11 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'lock',
-        bundleId: bundle.bundleId,
-      });
+      const endpoint = USE_LOCAL_SERVER ? 'bundle/lock' : 'bundle';
+      const body = USE_LOCAL_SERVER 
+        ? { bundleId: bundle.bundleId }
+        : { action: 'lock', bundleId: bundle.bundleId };
+      const data = await apiPost(endpoint, body);
       if (data.ok) {
         setBundle(prev => prev ? { ...prev, locked: true } : null);
       }
@@ -194,10 +224,11 @@ export function useSiftOps() {
     if (!bundle) return;
 
     try {
-      const data = await apiPost('bundle', {
-        action: 'clear',
-        bundleId: bundle.bundleId,
-      });
+      const endpoint = USE_LOCAL_SERVER ? 'bundle/clear' : 'bundle';
+      const body = USE_LOCAL_SERVER 
+        ? { bundleId: bundle.bundleId }
+        : { action: 'clear', bundleId: bundle.bundleId };
+      const data = await apiPost(endpoint, body);
       if (data.ok) {
         setBundle(prev => prev ? { ...prev, docIds: [], locked: false } : null);
         setRagResponse(null);
@@ -261,7 +292,7 @@ export function useSiftOps() {
     status,
     isSyncing,
     refreshStatus,
-    syncTechCrunch,
+    syncTechCrunch: syncMozilla, // Alias for backward compatibility
 
     // Search
     results,

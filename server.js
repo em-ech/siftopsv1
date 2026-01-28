@@ -13,11 +13,7 @@ const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
 const OLLAMA_CHAT_MODEL = process.env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
 
 const DEFAULT_SOURCES = [
-  { sourceId: "techcrunch", name: "TechCrunch", baseUrl: "https://techcrunch.com" },
-  { sourceId: "mozilla", name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org" },
-  { sourceId: "wpnews", name: "WordPress.org News", baseUrl: "https://wordpress.org/news" },
-  { sourceId: "smashing", name: "Smashing Magazine", baseUrl: "https://www.smashingmagazine.com" },
-  { sourceId: "nasa", name: "NASA Blogs", baseUrl: "https://blogs.nasa.gov" }
+  { sourceId: "mozilla", name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org" }
 ];
 
 function wpApiBase(baseUrl) {
@@ -171,8 +167,8 @@ async function indexSource(sourceId) {
   src.lastError = null;
 
   const api = wpApiBase(src.baseUrl);
-  const posts = await fetchPagedJson(api, "/posts", 400);
-  const pages = await fetchPagedJson(api, "/pages", 200);
+  const posts = await fetchPagedJson(api, "/posts", 200);
+  const pages = await fetchPagedJson(api, "/pages", 50);
 
   const docsMap = STORE.docs.get(sourceId);
   const chunksMap = STORE.chunks.get(sourceId);
