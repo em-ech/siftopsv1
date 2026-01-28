@@ -7,7 +7,7 @@ interface TCTopBarProps {
 export function TCTopBar({ onGoHome }: TCTopBarProps) {
   return (
     <header className="bg-background border-b border-border">
-      <div className="pl-[180px] pr-6 py-3 flex items-center gap-3">
+      <div className="pl-[140px] pr-6 py-3 flex items-center gap-3">
         {/* Brand - clickable to go home */}
         <button
           onClick={onGoHome}
