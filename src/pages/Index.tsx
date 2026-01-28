@@ -4,7 +4,7 @@ import { WordPressSitesView } from '@/components/siftops/WordPressSitesView';
 import { ResultsView } from '@/components/siftops/ResultsView';
 import { GoogleDriveView } from '@/components/siftops/GoogleDriveView';
 import { GDriveResultsView } from '@/components/siftops/GDriveResultsView';
-import { useSiftOps } from '@/hooks/useSiftOps';
+import { useLocalSiftOps } from '@/hooks/useLocalSiftOps';
 import { useGoogleDrive } from '@/hooks/useGoogleDrive';
 
 type ViewMode = 'landing' | 'wordpress' | 'results' | 'gdrive' | 'gdrive-results';
@@ -13,12 +13,13 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [currentQuery, setCurrentQuery] = useState('');
 
-  // WordPress / existing SiftOps hook
+  // Local SiftOps hook for WordPress sources
   const {
-    status,
+    sourcesStatus,
+    refreshSources,
+    syncSource,
     isSyncing,
-    refreshStatus,
-    syncTechCrunch,
+    syncingSourceId,
     results,
     isSearching,
     searchReason,
@@ -32,19 +33,18 @@ const Index = () => {
     ragResponse,
     isAsking,
     askQuestion,
-  } = useSiftOps();
+  } = useLocalSiftOps();
 
   // Google Drive hook
   const gdrive = useGoogleDrive();
 
   useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
+    refreshSources();
+  }, [refreshSources]);
 
   // Handle OAuth callback - when returning from Google OAuth, automatically go to gdrive view
   useEffect(() => {
     if (gdrive.justConnected && viewMode === 'landing') {
-      // User just completed OAuth, go directly to Drive view
       setViewMode('gdrive');
     }
   }, [gdrive.justConnected, viewMode]);
@@ -53,19 +53,13 @@ const Index = () => {
     if (type === 'wordpress') {
       setViewMode('wordpress');
     } else if (type === 'gdrive') {
-      // Check if already connected
       await gdrive.checkConnection();
       if (gdrive.connection) {
-        // Already connected, go to Drive view
         setViewMode('gdrive');
       } else {
-        // Not connected - trigger OAuth immediately
         await gdrive.connect();
-        // The OAuth redirect will happen, user will return to the app
-        // The OAuth callback handling in useGoogleDrive will set the connection
       }
     }
-    // Other source types coming soon
   };
 
   const handleSearch = async (query: string) => {
@@ -80,8 +74,8 @@ const Index = () => {
     await gdrive.search(query);
   };
 
-  const handleSync = async () => {
-    await syncTechCrunch();
+  const handleSync = async (sourceId: string) => {
+    await syncSource(sourceId);
   };
 
   if (viewMode === 'landing') {
@@ -95,11 +89,13 @@ const Index = () => {
   if (viewMode === 'wordpress') {
     return (
       <WordPressSitesView
-        indexed={status.docs}
+        sources={sourcesStatus.sources}
         isSyncing={isSyncing}
+        syncingSourceId={syncingSourceId}
         onBack={() => setViewMode('landing')}
         onSearch={handleSearch}
         onSync={handleSync}
+        onRefresh={refreshSources}
       />
     );
   }
@@ -143,7 +139,7 @@ const Index = () => {
       isSearching={isSearching}
       onSearch={handleSearch}
       isSyncing={isSyncing}
-      onSync={handleSync}
+      onSync={() => {}}
       bundle={bundle}
       onCreateBundle={createBundle}
       onAddToBundle={addToBundle}
