@@ -199,7 +199,7 @@ function CombinedBundleAskPanel({
   };
 
   return (
-    <div className="rounded-xl border-2 border-primary/40 bg-card p-5">
+    <div className="rounded-xl border-[3px] border-primary/50 bg-card p-5">
       {/* Header */}
       <h4 className="font-semibold text-lg mb-4 text-foreground">Evidence Bundle</h4>
 
