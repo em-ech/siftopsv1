@@ -2,7 +2,7 @@
 // Set USE_LOCAL_SERVER to true when running with local Ollama backend
 // Set to false to use Supabase edge functions
 
-export const USE_LOCAL_SERVER = false;
+export const USE_LOCAL_SERVER = true;
 
 export const LOCAL_API_BASE = 'http://localhost:8080/api';
 

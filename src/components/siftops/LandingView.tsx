@@ -29,7 +29,7 @@ export function LandingView({ onSelectSourceType }: LandingViewProps) {
           <SourceTypeCard
             icon={Globe}
             title="WordPress"
-            description="Search WordPress sites like TechCrunch, Mozilla Blog"
+            description="Search Mozilla Blog and TechCrunch"
             enabled={true}
             onClick={() => onSelectSourceType('wordpress')}
           />
