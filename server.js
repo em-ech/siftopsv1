@@ -12,17 +12,13 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
 const OLLAMA_CHAT_MODEL = process.env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
 
-// Primary sources - Mozilla Blog is the focus for local MVP
 const DEFAULT_SOURCES = [
-  { sourceId: "mozilla", name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org" },
   { sourceId: "techcrunch", name: "TechCrunch", baseUrl: "https://techcrunch.com" },
+  { sourceId: "mozilla", name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org" },
+  { sourceId: "wpnews", name: "WordPress.org News", baseUrl: "https://wordpress.org/news" },
+  { sourceId: "smashing", name: "Smashing Magazine", baseUrl: "https://www.smashingmagazine.com" },
+  { sourceId: "nasa", name: "NASA Blogs", baseUrl: "https://blogs.nasa.gov" }
 ];
-
-// Indexing caps for demo to prevent timeouts
-const INDEXING_CAPS = {
-  mozilla: { posts: 200, pages: 50 },
-  techcrunch: { posts: 200, pages: 50 },
-};
 
 function wpApiBase(baseUrl) {
   return `${String(baseUrl || "").replace(/\/$/, "")}/wp-json/wp/v2`;
@@ -175,9 +171,8 @@ async function indexSource(sourceId) {
   src.lastError = null;
 
   const api = wpApiBase(src.baseUrl);
-  const caps = INDEXING_CAPS[sourceId] || { posts: 200, pages: 50 };
-  const posts = await fetchPagedJson(api, "/posts", caps.posts);
-  const pages = await fetchPagedJson(api, "/pages", caps.pages);
+  const posts = await fetchPagedJson(api, "/posts", 400);
+  const pages = await fetchPagedJson(api, "/pages", 200);
 
   const docsMap = STORE.docs.get(sourceId);
   const chunksMap = STORE.chunks.get(sourceId);

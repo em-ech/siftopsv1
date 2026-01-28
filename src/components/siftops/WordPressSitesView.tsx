@@ -1,42 +1,42 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Globe, RefreshCw, Check, Search, Loader2, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Globe, RefreshCw, Check, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-interface Source {
-  sourceId: string;
+interface WordPressSite {
+  id: string;
   name: string;
-  baseUrl: string;
-  status: 'not_indexed' | 'indexing' | 'indexed' | 'error';
-  docs: number;
-  chunks: number;
-  lastSync: string | null;
-  lastError: string | null;
+  url: string;
+  indexed: boolean;
+  docsCount: number;
 }
 
+const DEFAULT_SITES: WordPressSite[] = [
+  { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com', indexed: false, docsCount: 0 },
+];
+
 interface WordPressSitesViewProps {
-  sources: Source[];
+  indexed: number;
   isSyncing: boolean;
-  syncingSourceId: string | null;
   onBack: () => void;
   onSearch: (query: string) => void;
-  onSync: (sourceId: string) => void;
-  onRefresh: () => void;
+  onSync: () => void;
 }
 
 export function WordPressSitesView({
-  sources,
+  indexed,
   isSyncing,
-  syncingSourceId,
   onBack,
   onSearch,
   onSync,
-  onRefresh,
 }: WordPressSitesViewProps) {
   const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    onRefresh();
-  }, [onRefresh]);
+  const [sites] = useState<WordPressSite[]>(
+    DEFAULT_SITES.map((site) => ({
+      ...site,
+      indexed: site.id === 'techcrunch' && indexed > 0,
+      docsCount: site.id === 'techcrunch' ? indexed : 0,
+    }))
+  );
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -45,69 +45,7 @@ export function WordPressSitesView({
     }
   };
 
-  // Filter to only show Mozilla and TechCrunch
-  const displaySources = sources.filter(s => 
-    s.sourceId === 'mozilla' || s.sourceId === 'techcrunch'
-  );
-
-  const totalIndexed = displaySources.reduce((sum, s) => sum + (s.status === 'indexed' ? s.docs : 0), 0);
-  const canSearch = totalIndexed > 0;
-
-  const getStatusDisplay = (source: Source) => {
-    if (syncingSourceId === source.sourceId) {
-      return (
-        <span className="flex items-center gap-1.5 text-sm text-primary">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Indexing...
-        </span>
-      );
-    }
-    
-    switch (source.status) {
-      case 'indexed':
-        return (
-          <span className="flex items-center gap-1.5 text-sm text-emerald-600">
-            <Check className="w-4 h-4" />
-            {source.docs} docs
-          </span>
-        );
-      case 'indexing':
-        return (
-          <span className="flex items-center gap-1.5 text-sm text-primary">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Indexing...
-          </span>
-        );
-      case 'error':
-        return (
-          <span className="flex items-center gap-1.5 text-sm text-destructive">
-            <AlertCircle className="w-4 h-4" />
-            Error
-          </span>
-        );
-      default:
-        return (
-          <span className="text-sm text-muted-foreground">
-            Not indexed
-          </span>
-        );
-    }
-  };
-
-  const formatLastSync = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getThumbnailUrl = (baseUrl: string) => {
-    return `https://s0.wp.com/mshots/v1/${encodeURIComponent(baseUrl)}?w=160&h=120`;
-  };
+  const canSearch = indexed > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,67 +94,59 @@ export function WordPressSitesView({
         </form>
 
         {/* Sites grid */}
-        <div className="grid gap-4">
-          {displaySources.map((source) => (
+        <div className="grid gap-3">
+          {sites.map((site) => (
             <div
-              key={source.sourceId}
+              key={site.id}
               className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-colors"
             >
-              {/* Thumbnail */}
-              <div className="w-20 h-15 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                <img
-                  src={getThumbnailUrl(source.baseUrl)}
-                  alt={source.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Globe className="w-5 h-5 text-primary" />
               </div>
-              
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground">{source.name}</h3>
+                <h3 className="font-semibold text-foreground">{site.name}</h3>
                 <p className="text-sm text-muted-foreground truncate">
-                  {source.baseUrl}
+                  {site.url}
                 </p>
-                {source.lastSync && source.status === 'indexed' && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Last synced: {formatLastSync(source.lastSync)}
-                  </p>
-                )}
-                {source.lastError && source.status === 'error' && (
-                  <p className="text-xs text-destructive mt-1 truncate">
-                    {source.lastError}
-                  </p>
-                )}
               </div>
-
-              <div className="flex items-center gap-3">
-                {getStatusDisplay(source)}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onSync(source.sourceId)}
-                  disabled={isSyncing}
-                  className="gap-1.5"
-                >
-                  {syncingSourceId === source.sourceId ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  {source.status === 'indexed' ? 'Re-sync' : 'Sync'}
-                </Button>
+              <div className="flex items-center">
+                {site.indexed ? (
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-600">
+                    <Check className="w-4 h-4" />
+                    {site.docsCount} docs
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Not indexed
+                  </span>
+                )}
               </div>
             </div>
           ))}
         </div>
 
+        {/* Sync button at bottom */}
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={onSync}
+            disabled={isSyncing}
+            size="lg"
+            className="gap-2 px-8"
+          >
+            {isSyncing ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-5 h-5" />
+            )}
+            {isSyncing ? 'Syncing...' : indexed > 0 ? 'Sync All Sources' : 'Start Indexing'}
+          </Button>
+        </div>
+
         {/* Status footer */}
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          {totalIndexed > 0
-            ? `${totalIndexed} total documents indexed`
-            : 'Click Sync on a source to start indexing'}
+          {indexed > 0
+            ? `${indexed} total documents indexed`
+            : 'Click Sync to start indexing sources'}
         </p>
       </div>
     </div>
