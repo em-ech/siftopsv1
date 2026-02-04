@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,15 +15,19 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
-    // Check if already connected
-    const { data: existing } = await supabase
+    // Check if already connected (with user filtering)
+    let existingQuery = supabase
       .from("gdrive_connections")
-      .select("*")
-      .limit(1);
+      .select("*");
+
+    if (userId) {
+      existingQuery = existingQuery.eq("user_id", userId);
+    }
+
+    const { data: existing } = await existingQuery.limit(1);
 
     if (existing && existing.length > 0) {
       return new Response(
@@ -38,8 +43,8 @@ serve(async (req) => {
 
     // Demo: Create a simulated connection
     // In production, this would exchange OAuth code for tokens
-    const demoEmail = "demo@siftops.com";
-    
+    const demoEmail = userId ? `user_${userId.slice(0, 8)}@siftops.com` : "demo@siftops.com";
+
     const { data: connection, error: insertError } = await supabase
       .from("gdrive_connections")
       .insert({
@@ -47,6 +52,7 @@ serve(async (req) => {
         access_token: "demo_access_token",
         refresh_token: "demo_refresh_token",
         token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+        user_id: userId,
       })
       .select()
       .single();

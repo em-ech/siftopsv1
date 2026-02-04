@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,33 +13,77 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
-    // Get sync status - use the fixed UUID row
-    const { data: syncStatus } = await supabase
+    // Parse optional sourceId from request
+    let sourceId: string | null = null;
+    try {
+      const body = await req.json();
+      sourceId = body.sourceId || null;
+    } catch {
+      // No body - get overall status
+    }
+
+    // Get sync status for specific source or user
+    let syncQuery = supabase
       .from("sync_status")
-      .select("*")
-      .eq("id", "00000000-0000-0000-0000-000000000001")
-      .maybeSingle();
+      .select("*");
 
-    // Get actual counts
-    const { count: docsCount } = await supabase
+    if (sourceId) {
+      syncQuery = syncQuery.eq("source_id", sourceId);
+    }
+
+    if (userId) {
+      syncQuery = syncQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: syncStatuses } = await syncQuery;
+
+    // Get actual counts (with user filtering)
+    let docsQuery = supabase
       .from("documents")
       .select("*", { count: "exact", head: true });
+
+    if (userId) {
+      docsQuery = docsQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    if (sourceId) {
+      docsQuery = docsQuery.eq("source_id", sourceId);
+    }
+
+    const { count: docsCount } = await docsQuery;
 
     const { count: chunksCount } = await supabase
       .from("document_chunks")
       .select("*", { count: "exact", head: true });
+
+    // Get all sources
+    let sourcesQuery = supabase
+      .from("sources")
+      .select("*");
+
+    if (userId) {
+      sourcesQuery = sourcesQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: sources } = await sourcesQuery;
+
+    // Determine overall status
+    const latestSync = syncStatuses?.sort((a: any, b: any) =>
+      new Date(b.synced_at || 0).getTime() - new Date(a.synced_at || 0).getTime()
+    )[0];
 
     return new Response(
       JSON.stringify({
         ok: true,
         docs: docsCount || 0,
         chunks: chunksCount || 0,
-        syncedAt: syncStatus?.synced_at || null,
-        status: syncStatus?.status || "idle",
+        syncedAt: latestSync?.synced_at || null,
+        status: latestSync?.status || "idle",
+        sources: sources || [],
+        syncStatuses: syncStatuses || [],
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

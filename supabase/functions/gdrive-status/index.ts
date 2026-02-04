@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,15 +13,19 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
-    // Check for existing connection (demo: just get the first one)
-    const { data: connections } = await supabase
+    // Check for existing connection (with user filtering)
+    let connQuery = supabase
       .from("gdrive_connections")
-      .select("*")
-      .limit(1);
+      .select("*");
+
+    if (userId) {
+      connQuery = connQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: connections } = await connQuery.limit(1);
 
     if (!connections || connections.length === 0) {
       return new Response(

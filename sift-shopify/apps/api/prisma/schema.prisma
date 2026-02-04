@@ -1,0 +1,178 @@
+// Prisma schema for Sift Shopify Search
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+// Shop model - stores Shopify shop data and credentials
+model Shop {
+  id            String    @id @default(uuid())
+  shopDomain    String    @unique @map("shop_domain")
+  accessToken   String    @map("access_token") // Encrypted at rest
+  installedAt   DateTime  @default(now()) @map("installed_at")
+  uninstalledAt DateTime? @map("uninstalled_at")
+
+  // Sync status
+  lastSyncAt    DateTime? @map("last_sync_at")
+  syncStatus    SyncStatus @default(IDLE) @map("sync_status")
+  syncError     String?    @map("sync_error")
+
+  // Relations
+  variants      ProductVariant[]
+  overrides     ManualOverride[]
+  searchEvents  SearchEvent[]
+
+  @@map("shops")
+}
+
+enum SyncStatus {
+  IDLE
+  BACKFILL_PENDING
+  BACKFILL_RUNNING
+  BACKFILL_COMPLETE
+  ERROR
+}
+
+// ProductVariant model - stores product variant data with embeddings
+model ProductVariant {
+  id                String   @id @default(uuid())
+  shopId            String   @map("shop_id")
+  productId         String   @map("product_id")  // Shopify GID
+  variantId         String   @map("variant_id")  // Shopify GID
+  handle            String
+  title             String
+  vendor            String?
+  productType       String?  @map("product_type")
+  tags              String[] @default([])
+  variantTitle      String?  @map("variant_title")
+  options           Json?    @default("{}")
+  price             Decimal  @db.Decimal(10, 2)
+  compareAtPrice    Decimal? @map("compare_at_price") @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  available         Boolean  @default(true)
+  inventoryQuantity Int?     @map("inventory_quantity")
+  metafields        Json?    @default("{}")
+  collections       String[] @default([])
+  imageUrl          String?  @map("image_url")
+
+  // Search fields
+  canonicalText     String   @map("canonical_text") @db.Text
+  embedding         Unsupported("vector(384)")?
+
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  shop              Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([shopId, variantId])
+  @@index([shopId, handle])
+  @@index([shopId, productId])
+  @@index([shopId, available])
+  @@index([productType])
+  @@map("product_variants")
+}
+
+// ManualOverride model - stores search ranking overrides
+model ManualOverride {
+  id          String        @id @default(uuid())
+  shopId      String        @map("shop_id")
+  scopeType   ScopeType     @map("scope_type")
+  scopeValue  String?       @map("scope_value") // null for global scope
+  variantId   String        @map("variant_id")
+  action      OverrideAction
+  weight      Float         @default(1.0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  shop        Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, scopeType, scopeValue, variantId])
+  @@index([shopId])
+  @@map("manual_overrides")
+}
+
+enum ScopeType {
+  QUERY
+  CATEGORY
+  GLOBAL
+}
+
+enum OverrideAction {
+  PIN
+  BOOST
+  DEMOTE
+  EXCLUDE
+}
+
+// SearchEvent model - stores search analytics
+model SearchEvent {
+  id                String    @id @default(uuid())
+  shopId            String    @map("shop_id")
+  sessionId         String?   @map("session_id")
+  variant           SearchVariant @default(CONTROL)
+  query             String
+  region            String?
+  results           Json      @default("[]")
+  resultCount       Int       @default(0) @map("result_count")
+  clickedVariantId  String?   @map("clicked_variant_id")
+  purchasedVariantId String?  @map("purchased_variant_id")
+  revenue           Decimal?  @db.Decimal(10, 2)
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  shop              Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([shopId, query])
+  @@index([shopId, variant])
+  @@map("search_events")
+}
+
+enum SearchVariant {
+  CONTROL
+  TREATMENT
+}
+
+// BulkOperation model - tracks Shopify bulk operation status
+model BulkOperation {
+  id              String    @id @default(uuid())
+  shopId          String    @map("shop_id")
+  shopifyOpId     String    @map("shopify_op_id")
+  status          String    @default("CREATED")
+  url             String?
+  errorCode       String?   @map("error_code")
+  objectCount     Int?      @map("object_count")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([shopId])
+  @@index([shopifyOpId])
+  @@map("bulk_operations")
+}
+
+// WebhookLog model - stores webhook processing logs for debugging
+model WebhookLog {
+  id          String   @id @default(uuid())
+  shopDomain  String   @map("shop_domain")
+  topic       String
+  webhookId   String   @map("webhook_id")
+  payload     Json
+  processed   Boolean  @default(false)
+  error       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([shopDomain, topic])
+  @@index([webhookId])
+  @@map("webhook_logs")
+}

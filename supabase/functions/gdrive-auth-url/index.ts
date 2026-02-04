@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     const { redirectUri } = await req.json();
-    
+
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     if (!clientId) {
       return new Response(

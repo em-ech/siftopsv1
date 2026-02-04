@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
+import { chunkText, prepareForEmbedding, CHUNK_SIZE, CHUNK_OVERLAP } from "../_shared/chunking.ts";
 
 // Declare Supabase AI global
 declare const Supabase: {
@@ -15,6 +17,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Configuration
+const BATCH_SIZE = 50;
+const MAX_CHUNKS_PER_FILE = 10;
+
 // Initialize the embedding model
 const embeddingModel = new Supabase.ai.Session('gte-small');
 
@@ -27,20 +33,6 @@ async function getEmbedding(text: string): Promise<string> {
   return `[${arr.join(',')}]`;
 }
 
-function chunkText(text: string, maxChars: number = 800, overlap: number = 100): string[] {
-  const t = String(text || "").replace(/\s+/g, " ").trim();
-  if (!t) return [];
-  const out: string[] = [];
-  let start = 0;
-  while (start < t.length) {
-    const end = Math.min(start + maxChars, t.length);
-    out.push(t.slice(start, end));
-    start = end - overlap;
-    if (start >= t.length - overlap) break;
-  }
-  return out;
-}
-
 // Refresh access token if needed
 async function refreshTokenIfNeeded(
   supabase: any,
@@ -48,7 +40,7 @@ async function refreshTokenIfNeeded(
 ): Promise<string> {
   const now = new Date();
   const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
-  
+
   // If token is still valid for at least 5 minutes, use it
   if (expiresAt && expiresAt.getTime() - now.getTime() > 5 * 60 * 1000) {
     return connection.access_token;
@@ -85,7 +77,7 @@ async function refreshTokenIfNeeded(
   }
 
   const tokens = await response.json();
-  const newExpiresAt = tokens.expires_in 
+  const newExpiresAt = tokens.expires_in
     ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
     : null;
 
@@ -102,10 +94,7 @@ async function refreshTokenIfNeeded(
 }
 
 // Fetch file list from Google Drive
-async function fetchDriveFiles(accessToken: string, folderId?: string): Promise<any[]> {
-  const files: any[] = [];
-  let pageToken: string | null = null;
-
+async function fetchDriveFiles(accessToken: string, folderId?: string, pageToken?: string): Promise<{ files: any[]; nextPageToken: string | null }> {
   // File types we can extract text from
   const mimeTypes = [
     "application/vnd.google-apps.document",
@@ -117,39 +106,34 @@ async function fetchDriveFiles(accessToken: string, folderId?: string): Promise<
 
   const mimeQuery = mimeTypes.map(m => `mimeType='${m}'`).join(" or ");
   let query = `(${mimeQuery}) and trashed=false`;
-  
+
   if (folderId) {
     query = `'${folderId}' in parents and ${query}`;
   }
 
-  do {
-    const url = new URL("https://www.googleapis.com/drive/v3/files");
-    url.searchParams.set("q", query);
-    url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime,parents)");
-    url.searchParams.set("pageSize", "100");
-    if (pageToken) {
-      url.searchParams.set("pageToken", pageToken);
-    }
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", query);
+  url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime,parents)");
+  url.searchParams.set("pageSize", String(BATCH_SIZE));
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
 
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Drive API error:", errorText);
-      throw new Error("Failed to fetch files from Google Drive");
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Drive API error:", errorText);
+    throw new Error("Failed to fetch files from Google Drive");
+  }
 
-    const data = await response.json();
-    files.push(...(data.files || []));
-    pageToken = data.nextPageToken || null;
-
-    // Limit to 50 files per sync to avoid timeouts
-    if (files.length >= 50) break;
-  } while (pageToken);
-
-  return files;
+  const data = await response.json();
+  return {
+    files: data.files || [],
+    nextPageToken: data.nextPageToken || null,
+  };
 }
 
 // Get folder path for a file
@@ -161,7 +145,7 @@ async function getFolderPath(accessToken: string, parentIds: string[]): Promise<
       `https://www.googleapis.com/drive/v3/files/${parentIds[0]}?fields=name`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    
+
     if (response.ok) {
       const folder = await response.json();
       return folder.name || "";
@@ -169,7 +153,7 @@ async function getFolderPath(accessToken: string, parentIds: string[]): Promise<
   } catch (e) {
     console.error("Error getting folder path:", e);
   }
-  
+
   return "";
 }
 
@@ -190,15 +174,12 @@ async function exportGoogleDoc(accessToken: string, fileId: string): Promise<str
 
 // Get file content for non-Google formats
 async function getFileContent(accessToken: string, fileId: string, mimeType: string): Promise<string> {
-  // For PDFs and other binary formats, we'd need additional processing
-  // For now, we'll only fully support Google Docs and plain text
-  
   if (mimeType === "text/plain") {
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    
+
     if (response.ok) {
       return await response.text();
     }
@@ -227,17 +208,73 @@ async function getFileContent(accessToken: string, fileId: string, mimeType: str
   return "";
 }
 
+interface SyncCheckpoint {
+  pageToken: string | null;
+  processedFiles: number;
+  totalChunks: number;
+}
+
+async function getCheckpoint(supabase: any, connectionId: string, userId: string | null): Promise<SyncCheckpoint | null> {
+  const { data } = await supabase
+    .from("sync_checkpoints")
+    .select("*")
+    .eq("source_id", `gdrive_${connectionId}`)
+    .eq("user_id", userId)
+    .single();
+
+  if (data && data.status === "in_progress") {
+    return {
+      pageToken: data.last_item_id,
+      processedFiles: data.processed_count || 0,
+      totalChunks: data.total_count || 0,
+    };
+  }
+
+  return null;
+}
+
+async function saveCheckpoint(
+  supabase: any,
+  connectionId: string,
+  userId: string | null,
+  checkpoint: SyncCheckpoint,
+  status: string = "in_progress",
+  error: string | null = null
+): Promise<void> {
+  await supabase
+    .from("sync_checkpoints")
+    .upsert({
+      source_id: `gdrive_${connectionId}`,
+      user_id: userId,
+      last_item_id: checkpoint.pageToken,
+      processed_count: checkpoint.processedFiles,
+      total_count: checkpoint.totalChunks,
+      status,
+      error,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: "source_id,user_id",
+    });
+}
+
+async function clearCheckpoint(supabase: any, connectionId: string, userId: string | null): Promise<void> {
+  await supabase
+    .from("sync_checkpoints")
+    .delete()
+    .eq("source_id", `gdrive_${connectionId}`)
+    .eq("user_id", userId);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { connectionId, folderId } = await req.json();
-    
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { connectionId, folderId, resume, reset } = await req.json();
+
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
     // Get connection
     const { data: connection, error: connError } = await supabase
@@ -253,6 +290,14 @@ serve(async (req) => {
     // Get valid access token
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
+    // Check for checkpoint
+    let checkpoint = resume ? await getCheckpoint(supabase, connectionId, userId) : null;
+
+    if (reset) {
+      await clearCheckpoint(supabase, connectionId, userId);
+      checkpoint = null;
+    }
+
     // Update sync status to indexing
     await supabase
       .from("gdrive_sync_status")
@@ -260,90 +305,151 @@ serve(async (req) => {
       .eq("connection_id", connectionId);
 
     console.log("Fetching files from Google Drive...");
-    const driveFiles = await fetchDriveFiles(accessToken, folderId);
-    console.log(`Found ${driveFiles.length} files`);
 
-    // Clear existing files for this connection
-    await supabase
-      .from("gdrive_files")
-      .delete()
-      .eq("connection_id", connectionId);
+    let pageToken = checkpoint?.pageToken || undefined;
+    let totalFiles = checkpoint?.processedFiles || 0;
+    let totalChunks = checkpoint?.totalChunks || 0;
+    let hasMore = true;
+    let filesProcessedThisBatch = 0;
 
-    let totalFiles = 0;
-    let totalChunks = 0;
+    while (hasMore) {
+      const { files: driveFiles, nextPageToken } = await fetchDriveFiles(accessToken, folderId, pageToken);
+      console.log(`Fetched ${driveFiles.length} files`);
 
-    for (const file of driveFiles) {
-      console.log(`Processing: ${file.name} (${file.mimeType})`);
+      for (const file of driveFiles) {
+        console.log(`Processing: ${file.name} (${file.mimeType})`);
 
-      // Get file content based on type
-      let content = "";
-      if (file.mimeType === "application/vnd.google-apps.document") {
-        content = await exportGoogleDoc(accessToken, file.id);
-      } else {
-        content = await getFileContent(accessToken, file.id, file.mimeType);
-      }
-
-      if (!content || content.length < 50) {
-        console.log(`Skipping ${file.name} - no content or too short`);
-        continue;
-      }
-
-      // Get folder path
-      const folderPath = await getFolderPath(accessToken, file.parents);
-
-      // Insert file record
-      const { data: fileRecord, error: fileError } = await supabase
-        .from("gdrive_files")
-        .insert({
-          connection_id: connectionId,
-          file_id: file.id,
-          name: file.name,
-          mime_type: file.mimeType,
-          web_view_link: file.webViewLink,
-          folder_path: folderPath || null,
-          full_text: content.slice(0, 50000), // Limit stored text
-          modified_time: file.modifiedTime,
-          indexed_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (fileError) {
-        console.error(`Error inserting file ${file.name}:`, fileError);
-        continue;
-      }
-
-      totalFiles++;
-
-      // Chunk and embed content
-      const chunks = chunkText(content, 800, 100);
-      
-      for (let i = 0; i < Math.min(chunks.length, 10); i++) { // Limit chunks per file
-        const chunkId = `${file.id}::c${i + 1}`;
-        const chunkContent = chunks[i];
-
-        try {
-          console.log(`Embedding chunk ${i + 1}/${chunks.length} for ${file.name}`);
-          const embedding = await getEmbedding(`${file.name}\n\n${chunkContent}`);
-
-          const { error: chunkError } = await supabase
-            .from("gdrive_chunks")
-            .insert({
-              file_id: fileRecord.id,
-              chunk_id: chunkId,
-              chunk_index: i,
-              content: chunkContent,
-              embedding: embedding,
-            });
-
-          if (chunkError) {
-            console.error(`Error inserting chunk ${chunkId}:`, chunkError);
-          } else {
-            totalChunks++;
-          }
-        } catch (embError) {
-          console.error(`Error embedding chunk ${chunkId}:`, embError);
+        // Get file content based on type
+        let content = "";
+        if (file.mimeType === "application/vnd.google-apps.document") {
+          content = await exportGoogleDoc(accessToken, file.id);
+        } else {
+          content = await getFileContent(accessToken, file.id, file.mimeType);
         }
+
+        if (!content || content.length < 50) {
+          console.log(`Skipping ${file.name} - no content or too short`);
+          continue;
+        }
+
+        // Get folder path
+        const folderPath = await getFolderPath(accessToken, file.parents);
+
+        // Check if file already exists
+        const { data: existingFile } = await supabase
+          .from("gdrive_files")
+          .select("id")
+          .eq("connection_id", connectionId)
+          .eq("file_id", file.id)
+          .single();
+
+        let fileRecordId: string;
+
+        if (existingFile) {
+          fileRecordId = existingFile.id;
+          // Update file content
+          await supabase
+            .from("gdrive_files")
+            .update({
+              name: file.name,
+              mime_type: file.mimeType,
+              web_view_link: file.webViewLink,
+              folder_path: folderPath || null,
+              full_text: content.slice(0, 50000),
+              modified_time: file.modifiedTime,
+              indexed_at: new Date().toISOString(),
+              user_id: userId,
+            })
+            .eq("id", existingFile.id);
+
+          // Delete existing chunks to recreate
+          await supabase
+            .from("gdrive_chunks")
+            .delete()
+            .eq("file_id", existingFile.id);
+        } else {
+          // Insert file record
+          const { data: fileRecord, error: fileError } = await supabase
+            .from("gdrive_files")
+            .insert({
+              connection_id: connectionId,
+              file_id: file.id,
+              name: file.name,
+              mime_type: file.mimeType,
+              web_view_link: file.webViewLink,
+              folder_path: folderPath || null,
+              full_text: content.slice(0, 50000),
+              modified_time: file.modifiedTime,
+              indexed_at: new Date().toISOString(),
+              user_id: userId,
+            })
+            .select()
+            .single();
+
+          if (fileError) {
+            console.error(`Error inserting file ${file.name}:`, fileError);
+            continue;
+          }
+
+          fileRecordId = fileRecord.id;
+        }
+
+        totalFiles++;
+
+        // Chunk and embed content using standardized chunking
+        const chunks = chunkText(content, CHUNK_SIZE, CHUNK_OVERLAP);
+
+        for (let i = 0; i < Math.min(chunks.length, MAX_CHUNKS_PER_FILE); i++) {
+          const chunkId = `${file.id}::c${i + 1}`;
+          const chunkContent = chunks[i];
+
+          try {
+            console.log(`Embedding chunk ${i + 1}/${Math.min(chunks.length, MAX_CHUNKS_PER_FILE)} for ${file.name}`);
+            const textForEmbedding = prepareForEmbedding(file.name, chunkContent);
+            const embedding = await getEmbedding(textForEmbedding);
+
+            const { error: chunkError } = await supabase
+              .from("gdrive_chunks")
+              .insert({
+                file_id: fileRecordId,
+                chunk_id: chunkId,
+                chunk_index: i,
+                content: chunkContent,
+                embedding: embedding,
+              });
+
+            if (chunkError) {
+              console.error(`Error inserting chunk ${chunkId}:`, chunkError);
+            } else {
+              totalChunks++;
+            }
+          } catch (embError) {
+            console.error(`Error embedding chunk ${chunkId}:`, embError);
+          }
+        }
+
+        filesProcessedThisBatch++;
+
+        // Save checkpoint periodically
+        if (filesProcessedThisBatch % 5 === 0) {
+          await saveCheckpoint(supabase, connectionId, userId, {
+            pageToken: nextPageToken || null,
+            processedFiles: totalFiles,
+            totalChunks,
+          });
+        }
+      }
+
+      if (nextPageToken) {
+        pageToken = nextPageToken;
+        // Save checkpoint before fetching next page
+        await saveCheckpoint(supabase, connectionId, userId, {
+          pageToken,
+          processedFiles: totalFiles,
+          totalChunks,
+        });
+      } else {
+        hasMore = false;
       }
     }
 
@@ -359,6 +465,9 @@ serve(async (req) => {
       })
       .eq("connection_id", connectionId);
 
+    // Clear checkpoint on success
+    await clearCheckpoint(supabase, connectionId, userId);
+
     console.log(`Sync complete: ${totalFiles} files, ${totalChunks} chunks`);
 
     return new Response(
@@ -366,7 +475,7 @@ serve(async (req) => {
         ok: true,
         filesCount: totalFiles,
         chunksCount: totalChunks,
-        hasMore: driveFiles.length >= 50,
+        hasMore: false,
         message: `Indexed ${totalFiles} files with ${totalChunks} chunks`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -377,14 +486,20 @@ serve(async (req) => {
     try {
       const body = await req.clone().json();
       if (body.connectionId) {
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
+        const supabase = getServiceClient();
+        const userId = await getUserIdOptional(req).catch(() => null);
+
         await supabase
           .from("gdrive_sync_status")
           .update({ status: "error", error: String(error) })
           .eq("connection_id", body.connectionId);
+
+        // Save checkpoint with error for debugging
+        await saveCheckpoint(supabase, body.connectionId, userId, {
+          pageToken: null,
+          processedFiles: 0,
+          totalChunks: 0,
+        }, "error", String(error));
       }
     } catch {}
 

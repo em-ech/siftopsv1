@@ -1,0 +1,201 @@
+{
+  "products": [
+    {
+      "id": "gid://shopify/Product/1",
+      "handle": "classic-cotton-tshirt",
+      "title": "Classic Cotton T-Shirt",
+      "vendor": "SiftWear",
+      "productType": "T-Shirts",
+      "tags": ["cotton", "casual", "summer", "bestseller"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Summer Collection" },
+        { "title": "Basics" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/101", "title": "Small / White", "price": "24.99", "availableForSale": true, "inventoryQuantity": 50, "selectedOptions": [{ "name": "Size", "value": "Small" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/102", "title": "Medium / White", "price": "24.99", "availableForSale": true, "inventoryQuantity": 75, "selectedOptions": [{ "name": "Size", "value": "Medium" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/103", "title": "Large / White", "price": "24.99", "availableForSale": true, "inventoryQuantity": 60, "selectedOptions": [{ "name": "Size", "value": "Large" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/104", "title": "Small / Black", "price": "24.99", "availableForSale": true, "inventoryQuantity": 45, "selectedOptions": [{ "name": "Size", "value": "Small" }, { "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/105", "title": "Medium / Black", "price": "24.99", "availableForSale": true, "inventoryQuantity": 80, "selectedOptions": [{ "name": "Size", "value": "Medium" }, { "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/106", "title": "Large / Black", "price": "24.99", "availableForSale": true, "inventoryQuantity": 55, "selectedOptions": [{ "name": "Size", "value": "Large" }, { "name": "Color", "value": "Black" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/2",
+      "handle": "premium-denim-jeans",
+      "title": "Premium Denim Jeans",
+      "vendor": "SiftWear",
+      "productType": "Jeans",
+      "tags": ["denim", "premium", "casual", "classic"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Denim Collection" },
+        { "title": "Bestsellers" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/201", "title": "30 / Blue", "price": "79.99", "availableForSale": true, "inventoryQuantity": 30, "selectedOptions": [{ "name": "Waist", "value": "30" }, { "name": "Color", "value": "Blue" }] },
+        { "id": "gid://shopify/ProductVariant/202", "title": "32 / Blue", "price": "79.99", "availableForSale": true, "inventoryQuantity": 45, "selectedOptions": [{ "name": "Waist", "value": "32" }, { "name": "Color", "value": "Blue" }] },
+        { "id": "gid://shopify/ProductVariant/203", "title": "34 / Blue", "price": "79.99", "availableForSale": true, "inventoryQuantity": 40, "selectedOptions": [{ "name": "Waist", "value": "34" }, { "name": "Color", "value": "Blue" }] },
+        { "id": "gid://shopify/ProductVariant/204", "title": "32 / Black", "price": "79.99", "availableForSale": true, "inventoryQuantity": 35, "selectedOptions": [{ "name": "Waist", "value": "32" }, { "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/205", "title": "34 / Black", "price": "79.99", "availableForSale": true, "inventoryQuantity": 25, "selectedOptions": [{ "name": "Waist", "value": "34" }, { "name": "Color", "value": "Black" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/3",
+      "handle": "cozy-wool-sweater",
+      "title": "Cozy Wool Sweater",
+      "vendor": "SiftWear",
+      "productType": "Sweaters",
+      "tags": ["wool", "winter", "cozy", "warm"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Winter Collection" },
+        { "title": "Knitwear" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/301", "title": "Small / Gray", "price": "89.99", "availableForSale": true, "inventoryQuantity": 20, "selectedOptions": [{ "name": "Size", "value": "Small" }, { "name": "Color", "value": "Gray" }] },
+        { "id": "gid://shopify/ProductVariant/302", "title": "Medium / Gray", "price": "89.99", "availableForSale": true, "inventoryQuantity": 35, "selectedOptions": [{ "name": "Size", "value": "Medium" }, { "name": "Color", "value": "Gray" }] },
+        { "id": "gid://shopify/ProductVariant/303", "title": "Large / Gray", "price": "89.99", "availableForSale": true, "inventoryQuantity": 25, "selectedOptions": [{ "name": "Size", "value": "Large" }, { "name": "Color", "value": "Gray" }] },
+        { "id": "gid://shopify/ProductVariant/304", "title": "Medium / Navy", "price": "89.99", "availableForSale": true, "inventoryQuantity": 30, "selectedOptions": [{ "name": "Size", "value": "Medium" }, { "name": "Color", "value": "Navy" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/4",
+      "handle": "athletic-running-shoes",
+      "title": "Athletic Running Shoes",
+      "vendor": "SiftSport",
+      "productType": "Shoes",
+      "tags": ["athletic", "running", "sports", "breathable"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Athletic Collection" },
+        { "title": "Footwear" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/401", "title": "8 / White", "price": "129.99", "availableForSale": true, "inventoryQuantity": 15, "selectedOptions": [{ "name": "Size", "value": "8" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/402", "title": "9 / White", "price": "129.99", "availableForSale": true, "inventoryQuantity": 20, "selectedOptions": [{ "name": "Size", "value": "9" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/403", "title": "10 / White", "price": "129.99", "availableForSale": true, "inventoryQuantity": 25, "selectedOptions": [{ "name": "Size", "value": "10" }, { "name": "Color", "value": "White" }] },
+        { "id": "gid://shopify/ProductVariant/404", "title": "9 / Black", "price": "129.99", "availableForSale": true, "inventoryQuantity": 18, "selectedOptions": [{ "name": "Size", "value": "9" }, { "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/405", "title": "10 / Black", "price": "129.99", "availableForSale": true, "inventoryQuantity": 22, "selectedOptions": [{ "name": "Size", "value": "10" }, { "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/406", "title": "11 / Black", "price": "129.99", "availableForSale": true, "inventoryQuantity": 12, "selectedOptions": [{ "name": "Size", "value": "11" }, { "name": "Color", "value": "Black" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/5",
+      "handle": "leather-messenger-bag",
+      "title": "Leather Messenger Bag",
+      "vendor": "SiftAccessories",
+      "productType": "Bags",
+      "tags": ["leather", "professional", "work", "premium"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Accessories" },
+        { "title": "Professional" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/501", "title": "Brown", "price": "149.99", "availableForSale": true, "inventoryQuantity": 10, "selectedOptions": [{ "name": "Color", "value": "Brown" }] },
+        { "id": "gid://shopify/ProductVariant/502", "title": "Black", "price": "149.99", "availableForSale": true, "inventoryQuantity": 15, "selectedOptions": [{ "name": "Color", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/503", "title": "Tan", "price": "149.99", "availableForSale": true, "inventoryQuantity": 8, "selectedOptions": [{ "name": "Color", "value": "Tan" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/6",
+      "handle": "summer-floral-dress",
+      "title": "Summer Floral Dress",
+      "vendor": "SiftWear",
+      "productType": "Dresses",
+      "tags": ["summer", "floral", "casual", "lightweight"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Summer Collection" },
+        { "title": "Dresses" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/601", "title": "XS / Blue Floral", "price": "59.99", "availableForSale": true, "inventoryQuantity": 12, "selectedOptions": [{ "name": "Size", "value": "XS" }, { "name": "Pattern", "value": "Blue Floral" }] },
+        { "id": "gid://shopify/ProductVariant/602", "title": "S / Blue Floral", "price": "59.99", "availableForSale": true, "inventoryQuantity": 18, "selectedOptions": [{ "name": "Size", "value": "S" }, { "name": "Pattern", "value": "Blue Floral" }] },
+        { "id": "gid://shopify/ProductVariant/603", "title": "M / Blue Floral", "price": "59.99", "availableForSale": true, "inventoryQuantity": 22, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Pattern", "value": "Blue Floral" }] },
+        { "id": "gid://shopify/ProductVariant/604", "title": "S / Pink Floral", "price": "59.99", "availableForSale": true, "inventoryQuantity": 15, "selectedOptions": [{ "name": "Size", "value": "S" }, { "name": "Pattern", "value": "Pink Floral" }] },
+        { "id": "gid://shopify/ProductVariant/605", "title": "M / Pink Floral", "price": "59.99", "availableForSale": true, "inventoryQuantity": 20, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Pattern", "value": "Pink Floral" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/7",
+      "handle": "waterproof-hiking-jacket",
+      "title": "Waterproof Hiking Jacket",
+      "vendor": "SiftOutdoors",
+      "productType": "Jackets",
+      "tags": ["outdoor", "waterproof", "hiking", "adventure"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Outdoor Collection" },
+        { "title": "Jackets" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/701", "title": "S / Green", "price": "189.99", "availableForSale": true, "inventoryQuantity": 8, "selectedOptions": [{ "name": "Size", "value": "S" }, { "name": "Color", "value": "Green" }] },
+        { "id": "gid://shopify/ProductVariant/702", "title": "M / Green", "price": "189.99", "availableForSale": true, "inventoryQuantity": 14, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Color", "value": "Green" }] },
+        { "id": "gid://shopify/ProductVariant/703", "title": "L / Green", "price": "189.99", "availableForSale": true, "inventoryQuantity": 10, "selectedOptions": [{ "name": "Size", "value": "L" }, { "name": "Color", "value": "Green" }] },
+        { "id": "gid://shopify/ProductVariant/704", "title": "M / Orange", "price": "189.99", "availableForSale": true, "inventoryQuantity": 6, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Color", "value": "Orange" }] },
+        { "id": "gid://shopify/ProductVariant/705", "title": "L / Orange", "price": "189.99", "availableForSale": true, "inventoryQuantity": 9, "selectedOptions": [{ "name": "Size", "value": "L" }, { "name": "Color", "value": "Orange" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/8",
+      "handle": "silk-scarf-collection",
+      "title": "Silk Scarf Collection",
+      "vendor": "SiftAccessories",
+      "productType": "Scarves",
+      "tags": ["silk", "luxury", "elegant", "gift"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Accessories" },
+        { "title": "Gift Ideas" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/801", "title": "Paisley Red", "price": "45.99", "availableForSale": true, "inventoryQuantity": 25, "selectedOptions": [{ "name": "Pattern", "value": "Paisley Red" }] },
+        { "id": "gid://shopify/ProductVariant/802", "title": "Abstract Blue", "price": "45.99", "availableForSale": true, "inventoryQuantity": 30, "selectedOptions": [{ "name": "Pattern", "value": "Abstract Blue" }] },
+        { "id": "gid://shopify/ProductVariant/803", "title": "Geometric Gold", "price": "49.99", "availableForSale": true, "inventoryQuantity": 20, "selectedOptions": [{ "name": "Pattern", "value": "Geometric Gold" }] },
+        { "id": "gid://shopify/ProductVariant/804", "title": "Solid Black", "price": "39.99", "availableForSale": true, "inventoryQuantity": 40, "selectedOptions": [{ "name": "Pattern", "value": "Solid Black" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/9",
+      "handle": "organic-cotton-hoodie",
+      "title": "Organic Cotton Hoodie",
+      "vendor": "SiftWear",
+      "productType": "Hoodies",
+      "tags": ["organic", "sustainable", "casual", "eco-friendly"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Sustainable Collection" },
+        { "title": "Basics" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/901", "title": "S / Heather Gray", "price": "69.99", "availableForSale": true, "inventoryQuantity": 18, "selectedOptions": [{ "name": "Size", "value": "S" }, { "name": "Color", "value": "Heather Gray" }] },
+        { "id": "gid://shopify/ProductVariant/902", "title": "M / Heather Gray", "price": "69.99", "availableForSale": true, "inventoryQuantity": 25, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Color", "value": "Heather Gray" }] },
+        { "id": "gid://shopify/ProductVariant/903", "title": "L / Heather Gray", "price": "69.99", "availableForSale": true, "inventoryQuantity": 22, "selectedOptions": [{ "name": "Size", "value": "L" }, { "name": "Color", "value": "Heather Gray" }] },
+        { "id": "gid://shopify/ProductVariant/904", "title": "XL / Heather Gray", "price": "69.99", "availableForSale": true, "inventoryQuantity": 15, "selectedOptions": [{ "name": "Size", "value": "XL" }, { "name": "Color", "value": "Heather Gray" }] },
+        { "id": "gid://shopify/ProductVariant/905", "title": "M / Forest Green", "price": "69.99", "availableForSale": true, "inventoryQuantity": 20, "selectedOptions": [{ "name": "Size", "value": "M" }, { "name": "Color", "value": "Forest Green" }] },
+        { "id": "gid://shopify/ProductVariant/906", "title": "L / Forest Green", "price": "69.99", "availableForSale": true, "inventoryQuantity": 16, "selectedOptions": [{ "name": "Size", "value": "L" }, { "name": "Color", "value": "Forest Green" }] }
+      ]
+    },
+    {
+      "id": "gid://shopify/Product/10",
+      "handle": "vintage-sunglasses",
+      "title": "Vintage Sunglasses",
+      "vendor": "SiftAccessories",
+      "productType": "Eyewear",
+      "tags": ["vintage", "retro", "summer", "UV protection"],
+      "status": "ACTIVE",
+      "collections": [
+        { "title": "Summer Collection" },
+        { "title": "Accessories" }
+      ],
+      "variants": [
+        { "id": "gid://shopify/ProductVariant/1001", "title": "Tortoise", "price": "79.99", "availableForSale": true, "inventoryQuantity": 12, "selectedOptions": [{ "name": "Style", "value": "Tortoise" }] },
+        { "id": "gid://shopify/ProductVariant/1002", "title": "Black", "price": "79.99", "availableForSale": true, "inventoryQuantity": 18, "selectedOptions": [{ "name": "Style", "value": "Black" }] },
+        { "id": "gid://shopify/ProductVariant/1003", "title": "Gold", "price": "89.99", "availableForSale": true, "inventoryQuantity": 8, "selectedOptions": [{ "name": "Style", "value": "Gold" }] }
+      ]
+    }
+  ]
+}

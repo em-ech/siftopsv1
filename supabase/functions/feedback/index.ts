@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
+import { normalizeQuery } from "../_shared/cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,30 +23,35 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
-    const querySig = String(query).toLowerCase().trim().replace(/\s+/g, " ");
+    const querySig = normalizeQuery(query);
 
-    // Get existing feedback
-    const { data: existing } = await supabase
+    // Get existing feedback (with user filtering)
+    let feedbackQuery = supabase
       .from("feedback")
       .select("*")
       .eq("query_signature", querySig)
-      .eq("doc_id", docId)
-      .maybeSingle();
+      .eq("doc_id", docId);
+
+    if (userId) {
+      feedbackQuery = feedbackQuery.eq("user_id", userId);
+    }
+
+    const { data: existing } = await feedbackQuery.maybeSingle();
 
     const currentWeight = existing?.weight || 0;
     const newWeight = label === 1 ? currentWeight + 1 : currentWeight - 1;
 
-    // Upsert feedback
+    // Upsert feedback with user_id
     const { error } = await supabase
       .from("feedback")
       .upsert({
         query_signature: querySig,
         doc_id: docId,
         weight: newWeight,
+        user_id: userId,
       }, { onConflict: "query_signature,doc_id" });
 
     if (error) throw error;

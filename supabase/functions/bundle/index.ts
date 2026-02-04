@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,16 +15,19 @@ serve(async (req) => {
   try {
     const { action, bundleId, docId } = await req.json();
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
     switch (action) {
       case "create": {
         const newBundleId = `b_${Date.now()}`;
         const { data, error } = await supabase
           .from("bundles")
-          .insert({ bundle_id: newBundleId, locked: false })
+          .insert({
+            bundle_id: newBundleId,
+            locked: false,
+            user_id: userId,
+          })
           .select()
           .single();
 
@@ -43,12 +47,17 @@ serve(async (req) => {
           );
         }
 
-        // Get bundle
-        const { data: bundle, error: bundleError } = await supabase
+        // Get bundle (with user filtering)
+        let bundleQuery = supabase
           .from("bundles")
           .select("*")
-          .eq("bundle_id", bundleId)
-          .maybeSingle();
+          .eq("bundle_id", bundleId);
+
+        if (userId) {
+          bundleQuery = bundleQuery.or(`user_id.eq.${userId},user_id.is.null`);
+        }
+
+        const { data: bundle, error: bundleError } = await bundleQuery.maybeSingle();
 
         if (bundleError || !bundle) {
           return new Response(
@@ -108,11 +117,16 @@ serve(async (req) => {
           );
         }
 
-        const { data: bundle } = await supabase
+        let bundleQuery = supabase
           .from("bundles")
           .select("*")
-          .eq("bundle_id", bundleId)
-          .maybeSingle();
+          .eq("bundle_id", bundleId);
+
+        if (userId) {
+          bundleQuery = bundleQuery.or(`user_id.eq.${userId},user_id.is.null`);
+        }
+
+        const { data: bundle } = await bundleQuery.maybeSingle();
 
         if (!bundle) {
           return new Response(
@@ -163,10 +177,16 @@ serve(async (req) => {
           );
         }
 
-        const { error } = await supabase
+        let updateQuery = supabase
           .from("bundles")
           .update({ locked: true })
           .eq("bundle_id", bundleId);
+
+        if (userId) {
+          updateQuery = updateQuery.or(`user_id.eq.${userId},user_id.is.null`);
+        }
+
+        const { error } = await updateQuery;
 
         if (error) throw error;
 
@@ -184,11 +204,16 @@ serve(async (req) => {
           );
         }
 
-        const { data: bundle } = await supabase
+        let bundleQuery = supabase
           .from("bundles")
           .select("id")
-          .eq("bundle_id", bundleId)
-          .maybeSingle();
+          .eq("bundle_id", bundleId);
+
+        if (userId) {
+          bundleQuery = bundleQuery.or(`user_id.eq.${userId},user_id.is.null`);
+        }
+
+        const { data: bundle } = await bundleQuery.maybeSingle();
 
         if (bundle) {
           await supabase

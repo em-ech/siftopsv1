@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,8 +22,8 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!lovableApiKey) {
@@ -32,14 +33,17 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get bundle and verify it's locked
-    const { data: bundleData, error: bundleError } = await supabase
+    // Get bundle and verify it's locked (with user filtering)
+    let bundleQuery = supabase
       .from("bundles")
       .select("*")
-      .eq("bundle_id", bundleId)
-      .single();
+      .eq("bundle_id", bundleId);
+
+    if (userId) {
+      bundleQuery = bundleQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: bundleData, error: bundleError } = await bundleQuery.single();
 
     if (bundleError || !bundleData) {
       return new Response(
@@ -74,11 +78,17 @@ serve(async (req) => {
       );
     }
 
-    // Fetch content from Google Drive files
-    const { data: gdriveFiles } = await supabase
+    // Fetch content from Google Drive files (with user filtering)
+    let gdriveQuery = supabase
       .from("gdrive_files")
       .select("file_id, name, web_view_link, full_text")
       .in("file_id", docIds);
+
+    if (userId) {
+      gdriveQuery = gdriveQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: gdriveFiles } = await gdriveQuery;
 
     // Also check regular documents (for WordPress sources)
     const { data: wpDocs } = await supabase
@@ -93,9 +103,9 @@ serve(async (req) => {
       url: string;
       content: string;
     }
-    
+
     const sources: SourceDoc[] = [];
-    
+
     if (gdriveFiles) {
       for (const file of gdriveFiles) {
         sources.push({
@@ -106,7 +116,7 @@ serve(async (req) => {
         });
       }
     }
-    
+
     if (wpDocs) {
       for (const doc of wpDocs) {
         sources.push({
@@ -166,7 +176,7 @@ ${sourceContext}`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI error:", response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ ok: false, error: "Rate limit exceeded. Please try again later." }),
@@ -179,7 +189,7 @@ ${sourceContext}`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       throw new Error(`AI request failed: ${response.status}`);
     }
 

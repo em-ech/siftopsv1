@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,21 +13,27 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
 
-    // Delete all connections (cascades to files, chunks, sync_status)
-    const { error } = await supabase
+    // Delete connections (cascades to files, chunks, sync_status)
+    // With user filtering for multi-tenant support
+    let deleteQuery = supabase
       .from("gdrive_connections")
       .delete()
       .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (userId) {
+      deleteQuery = deleteQuery.eq("user_id", userId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       throw error;
     }
 
-    console.log("Disconnected all Google Drive connections");
+    console.log("Disconnected Google Drive connections for user:", userId || "all");
 
     return new Response(
       JSON.stringify({ ok: true, message: "Disconnected successfully" }),

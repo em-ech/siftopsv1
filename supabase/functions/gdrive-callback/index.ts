@@ -1,18 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Note: This endpoint has verify_jwt = false because it handles OAuth callback
+// The state parameter provides CSRF protection
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { code, redirectUri } = await req.json();
+    const { code, redirectUri, userId } = await req.json();
 
     if (!code) {
       return new Response(
@@ -73,18 +75,18 @@ serve(async (req) => {
     console.log("User email:", userInfo.email);
 
     // Store connection in database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getServiceClient();
 
-    // Delete any existing connections first (single-user demo mode)
-    await supabase
-      .from("gdrive_connections")
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+    // Delete any existing connections for this user
+    if (userId) {
+      await supabase
+        .from("gdrive_connections")
+        .delete()
+        .eq("user_id", userId);
+    }
 
     // Insert new connection
-    const expiresAt = tokens.expires_in 
+    const expiresAt = tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null;
 
@@ -95,6 +97,7 @@ serve(async (req) => {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         token_expires_at: expiresAt,
+        user_id: userId || null,
       })
       .select()
       .single();

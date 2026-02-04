@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,20 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
 const OLLAMA_CHAT_MODEL = process.env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
 
+// Supabase client (singleton pattern for connection reuse)
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      _supabase = createClient(url, key);
+    }
+  }
+  return _supabase;
+}
+
+// Default sources (for seeding)
 const DEFAULT_SOURCES = [
   { sourceId: "techcrunch", name: "TechCrunch", baseUrl: "https://techcrunch.com" },
   { sourceId: "mozilla", name: "Mozilla Blog", baseUrl: "https://blog.mozilla.org" },
@@ -19,6 +34,10 @@ const DEFAULT_SOURCES = [
   { sourceId: "smashing", name: "Smashing Magazine", baseUrl: "https://www.smashingmagazine.com" },
   { sourceId: "nasa", name: "NASA Blogs", baseUrl: "https://blogs.nasa.gov" }
 ];
+
+// Chunking configuration (matches edge functions)
+const CHUNK_SIZE = 1000;
+const CHUNK_OVERLAP = 150;
 
 function wpApiBase(baseUrl) {
   return `${String(baseUrl || "").replace(/\/$/, "")}/wp-json/wp/v2`;
@@ -43,11 +62,23 @@ function htmlToText(html) {
     .trim();
 }
 
-function chunkText(text, maxChars = 1200) {
+function chunkText(text, maxChars = CHUNK_SIZE, overlap = CHUNK_OVERLAP) {
   const t = String(text || "").replace(/\s+/g, " ").trim();
   if (!t) return [];
+  if (t.length <= maxChars) return [t];
+
   const out = [];
-  for (let i = 0; i < t.length; i += maxChars) out.push(t.slice(i, i + maxChars));
+  let start = 0;
+
+  while (start < t.length) {
+    let end = Math.min(start + maxChars, t.length);
+    const chunk = t.slice(start, end).trim();
+    if (chunk) out.push(chunk);
+    if (end >= t.length) break;
+    start = end - overlap;
+    if (start <= 0 && out.length > 0) start = end;
+  }
+
   return out;
 }
 
@@ -123,69 +154,75 @@ async function fetchPagedJson(apiBase, endpoint, maxItems) {
   return all.slice(0, maxItems);
 }
 
-/*
-In memory store for MVP
-Replace later with Cassandra
-
-sources: Map(sourceId -> meta)
-docs: Map(sourceId -> Map(docId -> doc))
-chunks: Map(sourceId -> Map(chunkId -> chunk))
-vectors: Map(sourceId -> Map(chunkId -> embedding))
-bundles: Map(bundleId -> { locked, docIds })
-*/
-const STORE = {
-  sources: new Map(),
-  docs: new Map(),
-  chunks: new Map(),
-  vectors: new Map(),
-  bundles: new Map()
-};
-
-function ensureSourceMaps(sourceId) {
-  if (!STORE.docs.has(sourceId)) STORE.docs.set(sourceId, new Map());
-  if (!STORE.chunks.has(sourceId)) STORE.chunks.set(sourceId, new Map());
-  if (!STORE.vectors.has(sourceId)) STORE.vectors.set(sourceId, new Map());
-}
-
-function registerDefaults() {
-  for (const s of DEFAULT_SOURCES) {
-    STORE.sources.set(s.sourceId, {
-      ...s,
-      status: "not_indexed",
-      docs: 0,
-      chunks: 0,
-      lastSync: null,
-      lastError: null
-    });
-    ensureSourceMaps(s.sourceId);
+// Helper to get sources from Supabase or fallback to defaults
+async function getSources() {
+  const supabase = getSupabase();
+  if (supabase) {
+    const { data } = await supabase.from("sources").select("*");
+    if (data && data.length > 0) {
+      return data.map(s => ({
+        sourceId: s.source_id,
+        name: s.name,
+        baseUrl: s.base_url,
+        status: s.status || "not_indexed",
+        docs: s.docs_count || 0,
+        chunks: 0,
+        lastSync: null,
+        lastError: null
+      }));
+    }
   }
+  return DEFAULT_SOURCES.map(s => ({
+    ...s,
+    status: "not_indexed",
+    docs: 0,
+    chunks: 0,
+    lastSync: null,
+    lastError: null
+  }));
 }
 
-registerDefaults();
+// Helper to get totals from Supabase
+async function getTotals() {
+  const supabase = getSupabase();
+  if (supabase) {
+    const { count: docsCount } = await supabase
+      .from("documents")
+      .select("*", { count: "exact", head: true });
+    return { totalDocs: docsCount || 0 };
+  }
+  return { totalDocs: 0 };
+}
 
+// Index a source - stores in Supabase if available
 async function indexSource(sourceId) {
-  const src = STORE.sources.get(sourceId);
+  const sources = await getSources();
+  const src = sources.find(s => s.sourceId === sourceId);
   if (!src) throw new Error("Unknown sourceId");
 
-  src.status = "indexing";
-  src.lastError = null;
+  const supabase = getSupabase();
+
+  // Update status to indexing
+  if (supabase) {
+    await supabase.from("sources").upsert({
+      source_id: sourceId,
+      name: src.name,
+      base_url: src.baseUrl,
+      status: "indexing"
+    }, { onConflict: "source_id" });
+  }
 
   const api = wpApiBase(src.baseUrl);
-  const posts = await fetchPagedJson(api, "/posts", 400);
-  const pages = await fetchPagedJson(api, "/pages", 200);
-
-  const docsMap = STORE.docs.get(sourceId);
-  const chunksMap = STORE.chunks.get(sourceId);
-  const vecMap = STORE.vectors.get(sourceId);
-
-  docsMap.clear();
-  chunksMap.clear();
-  vecMap.clear();
+  const posts = await fetchPagedJson(api, "/posts", 200);
+  const pages = await fetchPagedJson(api, "/pages", 50);
 
   const all = [
     ...posts.map(p => ({ kind: "post", p })),
     ...pages.map(p => ({ kind: "page", p }))
   ];
+
+  let docsInserted = 0;
+  let chunksCreated = 0;
 
   for (const { kind, p } of all) {
     const title = htmlToText(p?.title?.rendered || "Untitled");
@@ -197,51 +234,104 @@ async function indexSource(sourceId) {
     if (!link || !text) continue;
 
     const docId = `${sourceId}_${kind}_${p.id}`;
-    docsMap.set(docId, {
-      docId,
-      sourceId,
-      sourceName: src.name,
-      type: kind,
-      title,
-      url: link,
-      date: p.date || "",
-      modified: p.modified || "",
-      text
-    });
 
-    const chunks = chunkText(text, 1200);
-    for (let i = 0; i < chunks.length; i += 1) {
-      const chunkId = `${docId}::c${i + 1}`;
-      const chunkVal = chunks[i];
+    if (supabase) {
+      // Check if exists
+      const { data: existing } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("doc_id", docId)
+        .single();
 
-      chunksMap.set(chunkId, {
-        chunkId,
-        docId,
-        sourceId,
-        type: kind,
-        title,
-        url: link,
-        date: p.date || "",
-        text: chunkVal
-      });
+      let documentId;
+      if (existing) {
+        documentId = existing.id;
+      } else {
+        const { data: newDoc, error: docError } = await supabase
+          .from("documents")
+          .insert({
+            doc_id: docId,
+            source_id: sourceId,
+            type: kind,
+            title: title.slice(0, 500),
+            url: link,
+            full_text: text.slice(0, 10000),
+            published_at: p.date || null
+          })
+          .select("id")
+          .single();
 
-      const v = await ollamaEmbed(`${title}\n\n${chunkVal}`);
-      vecMap.set(chunkId, v);
+        if (docError) {
+          console.error(`Error inserting doc ${docId}:`, docError.message);
+          continue;
+        }
+        documentId = newDoc.id;
+        docsInserted++;
+      }
+
+      // Check if chunks exist
+      const { data: existingChunks } = await supabase
+        .from("document_chunks")
+        .select("id")
+        .eq("document_id", documentId)
+        .limit(1);
+
+      if (existingChunks && existingChunks.length > 0) {
+        continue;
+      }
+
+      // Create chunks with embeddings
+      const chunks = chunkText(text, CHUNK_SIZE, CHUNK_OVERLAP);
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkId = `${docId}::c${i + 1}`;
+        const chunkVal = chunks[i];
+
+        try {
+          const v = await ollamaEmbed(`${title}\n\n${chunkVal}`);
+          const embeddingStr = `[${v.join(",")}]`;
+
+          const { error: chunkError } = await supabase
+            .from("document_chunks")
+            .insert({
+              chunk_id: chunkId,
+              document_id: documentId,
+              chunk_index: i,
+              content: chunkVal,
+              embedding: embeddingStr
+            });
+
+          if (!chunkError) chunksCreated++;
+        } catch (e) {
+          console.error(`Embedding error for ${chunkId}:`, e.message);
+        }
+      }
     }
   }
 
-  src.docs = docsMap.size;
-  src.chunks = chunksMap.size;
-  src.lastSync = nowIso();
-  src.status = "indexed";
+  // Update source status
+  if (supabase) {
+    const { count: totalDocs } = await supabase
+      .from("documents")
+      .select("*", { count: "exact", head: true })
+      .eq("source_id", sourceId);
 
-  return src;
-}
+    await supabase.from("sources").upsert({
+      source_id: sourceId,
+      name: src.name,
+      base_url: src.baseUrl,
+      status: "indexed",
+      docs_count: totalDocs || 0
+    }, { onConflict: "source_id" });
+  }
 
-function totals() {
-  let totalDocs = 0;
-  for (const s of STORE.sources.values()) totalDocs += Number(s.docs || 0);
-  return { totalDocs };
+  return {
+    sourceId,
+    name: src.name,
+    status: "indexed",
+    docs: docsInserted,
+    chunks: chunksCreated,
+    lastSync: nowIso()
+  };
 }
 
 function bestDocsFromCandidates(candidates, limit) {
@@ -254,8 +344,16 @@ function bestDocsFromCandidates(candidates, limit) {
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-app.get("/api/source/list", (req, res) => {
-  res.json({ ok: true, sources: [...STORE.sources.values()], totals: totals() });
+// API Routes
+
+app.get("/api/source/list", async (req, res) => {
+  try {
+    const sources = await getSources();
+    const totals = await getTotals();
+    res.json({ ok: true, sources, totals });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
 });
 
 app.post("/api/source/sync", async (req, res) => {
@@ -263,14 +361,9 @@ app.post("/api/source/sync", async (req, res) => {
     const sourceId = String(req.body.sourceId || "").trim();
     if (!sourceId) return res.status(400).json({ ok: false, error: "Missing sourceId" });
     const src = await indexSource(sourceId);
-    res.json({ ok: true, source: src, totals: totals() });
+    const totals = await getTotals();
+    res.json({ ok: true, source: src, totals });
   } catch (e) {
-    const sourceId = String(req.body.sourceId || "").trim();
-    const src = STORE.sources.get(sourceId);
-    if (src) {
-      src.status = "error";
-      src.lastError = String(e.message || e);
-    }
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
@@ -283,35 +376,40 @@ app.post("/api/search", async (req, res) => {
 
     if (!query) return res.json({ ok: true, results: [], reason: "empty_query" });
 
-    const active = sourceIds.length ? sourceIds : [...STORE.sources.keys()];
+    const supabase = getSupabase();
     const qVec = await ollamaEmbed(query);
-
     const candidates = [];
 
-    for (const sid of active) {
-      const src = STORE.sources.get(sid);
-      if (!src || src.status !== "indexed") continue;
+    if (supabase) {
+      // Use Supabase RPC for vector search
+      const embeddingStr = `[${qVec.join(",")}]`;
+      const { data: matches, error } = await supabase.rpc("match_chunks", {
+        query_embedding: embeddingStr,
+        match_threshold: 0.2,
+        match_count: 50
+      });
 
-      const vecMap = STORE.vectors.get(sid);
-      const chMap = STORE.chunks.get(sid);
+      if (error) {
+        console.error("Match error:", error);
+      } else if (matches) {
+        for (const m of matches) {
+          // Filter by source if specified
+          if (sourceIds.length > 0) {
+            const docSourceId = m.doc_id?.split("_")[0];
+            if (!sourceIds.includes(docSourceId)) continue;
+          }
 
-      for (const [chunkId, vec] of vecMap.entries()) {
-        const score = cosine(qVec, vec);
-        if (score <= 0) continue;
-
-        const ch = chMap.get(chunkId);
-        if (!ch) continue;
-
-        candidates.push({
-          docId: ch.docId,
-          sourceId: sid,
-          sourceName: src.name,
-          type: ch.type,
-          title: ch.title,
-          url: ch.url,
-          snippet: ch.text.slice(0, 260),
-          score
-        });
+          candidates.push({
+            docId: m.doc_id,
+            sourceId: m.doc_id?.split("_")[0] || "unknown",
+            sourceName: m.doc_id?.split("_")[0] || "Unknown",
+            type: m.type,
+            title: m.title,
+            url: m.url,
+            snippet: m.content?.slice(0, 260) || "",
+            score: m.similarity
+          });
+        }
       }
     }
 
@@ -328,52 +426,138 @@ app.post("/api/search", async (req, res) => {
   }
 });
 
-app.post("/api/bundle/create", (req, res) => {
+// Bundle management with Supabase
+app.post("/api/bundle/create", async (req, res) => {
   const bundleId = `b_${Date.now()}`;
-  STORE.bundles.set(bundleId, { bundleId, locked: false, docIds: [] });
+  const supabase = getSupabase();
+
+  if (supabase) {
+    const { error } = await supabase.from("bundles").insert({
+      bundle_id: bundleId,
+      locked: false
+    });
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
   res.json({ ok: true, bundleId });
 });
 
-app.post("/api/bundle/add", (req, res) => {
+app.post("/api/bundle/add", async (req, res) => {
   const bundleId = String(req.body.bundleId || "");
   const docId = String(req.body.docId || "");
   if (!bundleId || !docId) return res.status(400).json({ ok: false });
 
-  const b = STORE.bundles.get(bundleId);
-  if (!b) return res.status(404).json({ ok: false });
-  if (b.locked) return res.status(400).json({ ok: false, reason: "locked" });
+  const supabase = getSupabase();
+  if (!supabase) return res.status(500).json({ ok: false, error: "Database not configured" });
 
-  if (!b.docIds.includes(docId)) b.docIds.push(docId);
-  res.json({ ok: true, docIds: b.docIds, locked: b.locked });
+  const { data: bundle } = await supabase
+    .from("bundles")
+    .select("*")
+    .eq("bundle_id", bundleId)
+    .single();
+
+  if (!bundle) return res.status(404).json({ ok: false });
+  if (bundle.locked) return res.status(400).json({ ok: false, reason: "locked" });
+
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("doc_id", docId)
+    .single();
+
+  if (!doc) return res.status(404).json({ ok: false, error: "Document not found" });
+
+  await supabase.from("bundle_documents").upsert({
+    bundle_id: bundle.id,
+    document_id: doc.id
+  }, { onConflict: "bundle_id,document_id" });
+
+  const { data: bundleDocs } = await supabase
+    .from("bundle_documents")
+    .select("document_id, documents(doc_id)")
+    .eq("bundle_id", bundle.id);
+
+  const docIds = bundleDocs?.map(bd => bd.documents?.doc_id).filter(Boolean) || [];
+
+  res.json({ ok: true, docIds, locked: bundle.locked });
 });
 
-app.post("/api/bundle/remove", (req, res) => {
+app.post("/api/bundle/remove", async (req, res) => {
   const bundleId = String(req.body.bundleId || "");
   const docId = String(req.body.docId || "");
   if (!bundleId || !docId) return res.status(400).json({ ok: false });
 
-  const b = STORE.bundles.get(bundleId);
-  if (!b) return res.status(404).json({ ok: false });
-  if (b.locked) return res.status(400).json({ ok: false, reason: "locked" });
+  const supabase = getSupabase();
+  if (!supabase) return res.status(500).json({ ok: false, error: "Database not configured" });
 
-  b.docIds = b.docIds.filter(id => id !== docId);
-  res.json({ ok: true, docIds: b.docIds, locked: b.locked });
+  const { data: bundle } = await supabase
+    .from("bundles")
+    .select("*")
+    .eq("bundle_id", bundleId)
+    .single();
+
+  if (!bundle) return res.status(404).json({ ok: false });
+  if (bundle.locked) return res.status(400).json({ ok: false, reason: "locked" });
+
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("doc_id", docId)
+    .single();
+
+  if (doc) {
+    await supabase
+      .from("bundle_documents")
+      .delete()
+      .eq("bundle_id", bundle.id)
+      .eq("document_id", doc.id);
+  }
+
+  const { data: bundleDocs } = await supabase
+    .from("bundle_documents")
+    .select("document_id, documents(doc_id)")
+    .eq("bundle_id", bundle.id);
+
+  const docIds = bundleDocs?.map(bd => bd.documents?.doc_id).filter(Boolean) || [];
+
+  res.json({ ok: true, docIds, locked: bundle.locked });
 });
 
-app.post("/api/bundle/lock", (req, res) => {
+app.post("/api/bundle/lock", async (req, res) => {
   const bundleId = String(req.body.bundleId || "");
-  const b = STORE.bundles.get(bundleId);
-  if (!b) return res.status(404).json({ ok: false });
-  b.locked = true;
+  const supabase = getSupabase();
+
+  if (!supabase) return res.status(500).json({ ok: false, error: "Database not configured" });
+
+  const { error } = await supabase
+    .from("bundles")
+    .update({ locked: true })
+    .eq("bundle_id", bundleId);
+
+  if (error) return res.status(500).json({ ok: false, error: error.message });
+
   res.json({ ok: true, locked: true });
 });
 
-app.post("/api/bundle/clear", (req, res) => {
+app.post("/api/bundle/clear", async (req, res) => {
   const bundleId = String(req.body.bundleId || "");
-  const b = STORE.bundles.get(bundleId);
-  if (!b) return res.status(404).json({ ok: false });
-  b.docIds = [];
-  b.locked = false;
+  const supabase = getSupabase();
+
+  if (!supabase) return res.status(500).json({ ok: false, error: "Database not configured" });
+
+  const { data: bundle } = await supabase
+    .from("bundles")
+    .select("id")
+    .eq("bundle_id", bundleId)
+    .single();
+
+  if (bundle) {
+    await supabase.from("bundle_documents").delete().eq("bundle_id", bundle.id);
+    await supabase.from("bundles").update({ locked: false }).eq("id", bundle.id);
+  }
+
   res.json({ ok: true, docIds: [], locked: false });
 });
 
@@ -384,28 +568,75 @@ app.post("/api/ask", async (req, res) => {
 
     if (!bundleId || !question) return res.status(400).json({ ok: false });
 
-    const b = STORE.bundles.get(bundleId);
-    if (!b) return res.status(404).json({ ok: false });
-    if (!b.locked) return res.status(400).json({ ok: false, reason: "bundle_not_locked" });
-    if (!b.docIds.length) return res.json({ ok: true, answer: "Not found in selected sources", citations: [] });
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ ok: false, error: "Database not configured" });
 
+    const { data: bundle } = await supabase
+      .from("bundles")
+      .select("*")
+      .eq("bundle_id", bundleId)
+      .single();
+
+    if (!bundle) return res.status(404).json({ ok: false });
+    if (!bundle.locked) return res.status(400).json({ ok: false, reason: "bundle_not_locked" });
+
+    // Get bundle documents
+    const { data: bundleDocs } = await supabase
+      .from("bundle_documents")
+      .select("document_id")
+      .eq("bundle_id", bundle.id);
+
+    if (!bundleDocs || !bundleDocs.length) {
+      return res.json({ ok: true, answer: "Not found in selected sources", citations: [] });
+    }
+
+    const docIds = bundleDocs.map(bd => bd.document_id);
+
+    // Get documents
+    const { data: docs } = await supabase
+      .from("documents")
+      .select("*")
+      .in("id", docIds);
+
+    // Get chunks
+    const { data: chunks } = await supabase
+      .from("document_chunks")
+      .select("*")
+      .in("document_id", docIds)
+      .limit(50);
+
+    if (!docs?.length || !chunks?.length) {
+      return res.json({ ok: true, answer: "Not found in selected sources", citations: [] });
+    }
+
+    // Embed question and find relevant chunks
     const qVec = await ollamaEmbed(question);
 
     const citePool = [];
-    for (const docId of b.docIds) {
-      const sourceId = String(docId).split("_")[0];
-      const chMap = STORE.chunks.get(sourceId);
-      const vMap = STORE.vectors.get(sourceId);
-      if (!chMap || !vMap) continue;
-
-      for (const [chunkId, vec] of vMap.entries()) {
-        const ch = chMap.get(chunkId);
-        if (!ch || ch.docId !== docId) continue;
-        citePool.push({ chunkId, ch, score: cosine(qVec, vec) });
+    for (const chunk of chunks) {
+      // Parse embedding from string if needed
+      let chunkVec = chunk.embedding;
+      if (typeof chunkVec === "string") {
+        try {
+          chunkVec = JSON.parse(chunkVec);
+        } catch {
+          continue;
+        }
       }
+      if (!Array.isArray(chunkVec)) continue;
+
+      const doc = docs.find(d => d.id === chunk.document_id);
+      if (!doc) continue;
+
+      const score = cosine(qVec, chunkVec);
+      citePool.push({
+        chunk,
+        doc,
+        score
+      });
     }
 
-    citePool.sort((a, b2) => b2.score - a.score);
+    citePool.sort((a, b) => b.score - a.score);
     const top = citePool.slice(0, 8);
 
     if (!top.length || top[0].score < 0.22) {
@@ -414,9 +645,9 @@ app.post("/api/ask", async (req, res) => {
 
     const citations = top.map((t, i) => ({
       id: `C${i + 1}`,
-      url: t.ch.url,
-      title: t.ch.title,
-      excerpt: t.ch.text.slice(0, 900)
+      url: t.doc.url,
+      title: t.doc.title,
+      excerpt: t.chunk.content?.slice(0, 900) || ""
     }));
 
     const system =

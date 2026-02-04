@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { getUserIdOptional } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,18 +24,21 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = getServiceClient();
+    const userId = await getUserIdOptional(req);
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get bundle and verify it's locked
-    const { data: bundle, error: bundleError } = await supabase
+    // Get bundle and verify it's locked (with user filtering)
+    let bundleQuery = supabase
       .from("bundles")
       .select("*")
-      .eq("bundle_id", bundleId)
-      .maybeSingle();
+      .eq("bundle_id", bundleId);
+
+    if (userId) {
+      bundleQuery = bundleQuery.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+
+    const { data: bundle, error: bundleError } = await bundleQuery.maybeSingle();
 
     if (bundleError || !bundle) {
       return new Response(
@@ -58,10 +62,10 @@ serve(async (req) => {
 
     if (!bundleDocs || bundleDocs.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          ok: true, 
-          answer: "Not found in selected sources", 
-          citations: [] 
+        JSON.stringify({
+          ok: true,
+          answer: "Not found in selected sources",
+          citations: []
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -84,10 +88,10 @@ serve(async (req) => {
 
     if (!documents || documents.length === 0 || !chunks || chunks.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          ok: true, 
-          answer: "Not found in selected sources", 
-          citations: [] 
+        JSON.stringify({
+          ok: true,
+          answer: "Not found in selected sources",
+          citations: []
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -111,17 +115,17 @@ serve(async (req) => {
 
     if (evidence.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          ok: true, 
-          answer: "Not found in selected sources", 
-          citations: [] 
+        JSON.stringify({
+          ok: true,
+          answer: "Not found in selected sources",
+          citations: []
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Build the prompt
-    const systemPrompt = `You are a helpful assistant that answers questions based ONLY on the provided evidence. 
+    const systemPrompt = `You are a helpful assistant that answers questions based ONLY on the provided evidence.
 Rules:
 - Use ONLY the provided evidence to answer
 - If the evidence does not support an answer, respond exactly: "Not found in selected sources"
